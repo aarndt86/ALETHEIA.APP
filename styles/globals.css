@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas-linen: #F7F5F0;
+  --color-canvas-stone: #EBE9E4;
+  --color-text-ink: #1C1B1A;
+  --color-text-graphite: #6E6C68;
+  --color-accent-clay: #A89F91;
+  --color-accent-sage: #9CAFA3;
+
+  --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Font variables that will be populated by next/font */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+
+  /* Custom animations used in the design blueprints */
+  --animate-fade-in-slow: fadeIn 2s ease-in forwards;
+  --animate-ink-breathe: ink-breathe 8s ease-in-out infinite;
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeInUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(12px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes timelineCompress {
+    0% { transform: scale(1); opacity: 1; filter: blur(0px); }
+    100% { transform: scale(0.96) translateY(-20px); opacity: 0; filter: blur(5px); }
+  }
+
+  @keyframes memoryHighlight {
+    0% { background-color: rgba(168, 159, 145, 0.20); border-radius: 4px; box-shadow: 0 0 0 6px rgba(168, 159, 145, 0.20); }
+    100% { background-color: transparent; border-radius: 4px; box-shadow: 0 0 0 6px transparent; }
+  }
+
+  @keyframes thresholdRibbonFlow {
+    0% { transform: translateX(-10%) translateY(5%) rotate(-2deg) scale(1); opacity: 0.2; filter: blur(40px); }
+    50% { transform: translateX(10%) translateY(-5%) rotate(2deg) scale(1.1); opacity: 0.35; filter: blur(50px); }
+    100% { transform: translateX(-10%) translateY(5%) rotate(-2deg) scale(1); opacity: 0.2; filter: blur(40px); }
+  }
+
+  @keyframes particleDrift {
+    0% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0; }
+    30% { opacity: 0.5; }
+    70% { opacity: 0.5; }
+    100% { transform: translateY(-100px) translateX(50px) rotate(90deg); opacity: 0; }
+  }
+
+  @keyframes bookEmerge {
+    0% { opacity: 0; transform: scale(0.985) translateY(16px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  @keyframes bookSettle {
+    0% { transform: scale(1.008); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes chapterEmerge {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes blurRevealTarget {
+    from { filter: blur(24px); opacity: 0.2; }
+    to { filter: blur(var(--target-blur, 2px)); opacity: var(--target-opacity, 0.7); }
+  }
+
+  @keyframes cardEmerge {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes blurPromise {
+    from { filter: blur(8px); opacity: 0.6; }
+    to { filter: blur(6px); opacity: 0.85; }
+  }
+
+  @keyframes screenFloat {
+    from { transform: translateY(6px); }
+    to { transform: translateY(0); }
+  }
+
+  @keyframes fadeItem {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeInLine {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes breatheAtmosphere {
+    0% { transform: scale(1); opacity: 0.15; }
+    100% { transform: scale(1.1) translate(-1%, -1%); opacity: 0.35; }
+  }
+
+  @keyframes gentlePulse {
+    0% { opacity: 0.94; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes ink-breathe {
+    0%, 100% { filter: blur(6px); opacity: 0.4; }
+    50% { filter: blur(4px); opacity: 0.5; }
+  }
+
+  @keyframes spaceArrival {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes bridgeLineFade {
+    0% { opacity: 0; transform: translateY(4px); }
+    15% { opacity: 0.8; transform: translateY(0); }
+    70% { opacity: 0.8; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-4px); }
+  }
+}
+
+body {
+  background-color: var(--color-canvas-linen);
+  color: var(--color-text-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: var(--color-canvas-stone);
+  color: var(--color-text-ink);
+}
