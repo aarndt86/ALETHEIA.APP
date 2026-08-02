@@ -92,6 +92,7 @@ export default function RevealMicroPayoff() {
 
           {/* 6. "DONE" mechanism settling heavily over 800ms offset */}
           <button 
+            type="button"
             onClick={handleDone}
             className="group flex flex-col items-center focus:outline-none transition-transform duration-300 active:scale-[0.98] opacity-0"
             style={{ animation: 'fadeItem 1s cubic-bezier(0.33, 1, 0.68, 1) 1.4s forwards' }}

@@ -39,24 +39,23 @@ const STANDARD_INVITATIONS = [
   "What would you say if no one was listening?",
 ];
 
+// --- Stage type ---
+type Stage = 'firstEchoIntro' | 'checkin' | 'writing' | 'morphing' | 'reflection' | 'completion' | 'reveal' | 'returning' | 'error';
+
 export default function UnifiedReflectLoopScreen() {
   const {
     selectedState, setSelectedState,
     currentDraft, setCurrentDraft,
     totalEchoCount,
     saveEcho, completeReflection, markReflectionFailed,
-    isFirstEcho, isMilestoneEcho,
+    isFirstEcho,
     userStats,
   } = useAppContext();
   const router = useRouter();
 
   // --- State Machine ---
-  // Stages: firstEchoIntro → checkin → writing → morphing → reflection → completion → reveal → returning
-  // firstEchoIntro: only for brand-new users (savedEchoCount === 0)
-  // reveal: only on milestone echoes
-  const [stage, setStage] = useState<
-    'firstEchoIntro' | 'checkin' | 'writing' | 'morphing' | 'reflection' | 'completion' | 'reveal' | 'returning' | 'error'
-  >(isFirstEcho ? 'firstEchoIntro' : 'checkin');
+  // Stage is initialized to null, then set correctly after hydration
+  const [stage, setStage] = useState<Stage | null>(null);
 
   const [content, setContent] = useState('');
   const [isLoaded, setIsLoaded] = useState(false);
@@ -85,14 +84,36 @@ export default function UnifiedReflectLoopScreen() {
   // Track AI generation timing
   const aiStartTimeRef = useRef<number>(0);
 
-  // Milestone check for current echo (computed after potential completion)
+  // Invitation — memoized per mount so it doesn't re-randomize on re-render
+  const invitationRef = useRef<string | null>(null);
+
+  // Milestone check for current echo
   const willBeMilestone = MILESTONE_ECHOES.includes(userStats.completedReflectionCount + 1);
 
+  // --- Animation duration helper ---
+  const getFadeDuration = useCallback((ms: number) => {
+    return prefersReducedMotion ? Math.min(ms, 300) : ms;
+  }, [prefersReducedMotion]);
+
   // --- Initialization ---
+  // FIX: Wait for AppProvider hydration before determining initial stage.
+  // isFirstEcho is derived from savedEchoCount, which requires localStorage to load.
   useEffect(() => {
     setSelectedState(null);
     setContent('');
     setCurrentDraft('');
+
+    // Determine initial stage AFTER hydration
+    const initialStage: Stage = isFirstEcho ? 'firstEchoIntro' : 'checkin';
+    setStage(initialStage);
+
+    // Set invitation based on hydrated state
+    if (invitationRef.current === null) {
+      invitationRef.current = isFirstEcho
+        ? FIRST_INVITATION
+        : STANDARD_INVITATIONS[Math.floor(Math.random() * STANDARD_INVITATIONS.length)];
+    }
+
     setIsLoaded(true);
 
     // Detect reduced motion preference
@@ -103,7 +124,7 @@ export default function UnifiedReflectLoopScreen() {
       mq.addEventListener('change', handler);
       return () => mq.removeEventListener('change', handler);
     }
-  }, []);
+  }, [isFirstEcho, setSelectedState, setCurrentDraft]);
 
   // Analytics: first echo intro viewed
   useEffect(() => {
@@ -112,18 +133,14 @@ export default function UnifiedReflectLoopScreen() {
     }
   }, [stage]);
 
-  // --- Animation Helpers ---
-  const fadeDuration = (ms: number) => prefersReducedMotion ? Math.min(ms, 300) : ms;
-
   // --- Computed ---
-  const invitationText = isFirstEcho ? FIRST_INVITATION : STANDARD_INVITATIONS[Math.floor(Math.random() * STANDARD_INVITATIONS.length)];
-  // Memoize invitation so it doesn't re-randomize on re-render
-  const invitationRef = useRef(invitationText);
-  const invitation = invitationRef.current;
+  const invitation = invitationRef.current || FIRST_INVITATION;
 
-  const placeholderText = isFirstEcho && userStats.savedEchoCount === 0
+  const showFirstEchoUI = isFirstEcho && userStats.savedEchoCount === 0;
+
+  const placeholderText = showFirstEchoUI
     ? "Write what feels true right now\u2026"
-    : undefined; // Use default browser placeholder behavior (none)
+    : undefined;
 
   // --- Handlers ---
 
@@ -137,17 +154,14 @@ export default function UnifiedReflectLoopScreen() {
 
     setSelectedState(id);
 
-    // 1. Emotion Selection scales 1.0 -> 1.05 and lets grid drop away (600ms absolute wait)
     setTimeout(() => {
-      // 2. Trigger upward drift sequence natively resolving into the prompt
       setCheckInDisappearing(true);
 
-      // 3. Move to writing context completely liquidly
       setTimeout(() => {
         setStage('writing');
         setTimeout(() => textareaRef.current?.focus(), 100);
-      }, fadeDuration(800));
-    }, fadeDuration(600));
+      }, getFadeDuration(800));
+    }, getFadeDuration(600));
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -156,7 +170,6 @@ export default function UnifiedReflectLoopScreen() {
     setCurrentDraft(val);
     setSaveError(false);
 
-    // Writing Rhythm (Slow the experience intentionally by causing the DOM to "settle")
     setIsTyping(true);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
@@ -165,8 +178,7 @@ export default function UnifiedReflectLoopScreen() {
   };
 
   // --- Core: Submit Echo → Transition → AI Reflection ---
-  const handleSealEcho = useCallback(async () => {
-    if (isSubmitting) return;
+  const triggerReflectionFlow = useCallback(async () => {
     setIsSubmitting(true);
     setSaveError(false);
 
@@ -187,13 +199,13 @@ export default function UnifiedReflectLoopScreen() {
         isFirstEcho: userStats.savedEchoCount === 0,
       });
     } catch {
-      // Save failed — stay on Echo screen, don't clear writing
       setSaveError(true);
       setIsSubmitting(false);
+      setStage('writing');
       return;
     }
 
-    // Step 3: Fade the Echo interface (enter morphing stage)
+    // Step 3: Enter transition
     setStage('morphing');
     setTransitionMessage("Sitting with your words\u2026");
     trackEvent('reflection_transition_started', {
@@ -203,13 +215,16 @@ export default function UnifiedReflectLoopScreen() {
     // Step 4 & 5: Start AI request AND enforce minimum pause
     aiStartTimeRef.current = Date.now();
 
+    const minPause = prefersReducedMotion ? 300 : 1400;
+    const maxPauseTime = prefersReducedMotion ? 300 : 2200;
+
     const minPausePromise = new Promise<void>(resolve =>
-      setTimeout(resolve, prefersReducedMotion ? 300 : 1400)
+      setTimeout(resolve, minPause)
     );
 
     const maxPauseTimeout = setTimeout(() => {
       setTransitionMessage("Finding the thread\u2026");
-    }, prefersReducedMotion ? 300 : 2200);
+    }, maxPauseTime);
 
     let aiResult: { reflection: string; wordCount: number; generationTimeMs: number } | null = null;
     let aiFailed = false;
@@ -263,12 +278,11 @@ export default function UnifiedReflectLoopScreen() {
     setReflectionParagraphs(paragraphs);
 
     // Step 5: Reveal the Reflection
-    // Fade transition copy out (250ms), then fade Reflection in (500ms)
     setShowReflection(false);
-    await new Promise<void>(resolve => setTimeout(resolve, fadeDuration(250)));
+    const fadeOut = prefersReducedMotion ? 100 : 250;
+    await new Promise<void>(resolve => setTimeout(resolve, fadeOut));
 
     setStage('reflection');
-    // Small delay then show reflection content
     requestAnimationFrame(() => {
       setShowReflection(true);
     });
@@ -279,10 +293,15 @@ export default function UnifiedReflectLoopScreen() {
     });
 
     setIsSubmitting(false);
-  }, [isSubmitting, content, selectedState, userStats.savedEchoCount, saveEcho, markReflectionFailed, prefersReducedMotion, fadeDuration]);
+  }, [content, selectedState, userStats.savedEchoCount, saveEcho, markReflectionFailed, prefersReducedMotion]);
+
+  const handleSealEcho = () => {
+    if (isSubmitting) return;
+    triggerReflectionFlow();
+  };
 
   // --- Complete Today's Echo ---
-  const handleCompleteEcho = useCallback(() => {
+  const handleCompleteEcho = () => {
     const reflectionText = reflectionParagraphs.join('\n\n');
     completeReflection(reflectionText);
 
@@ -297,23 +316,30 @@ export default function UnifiedReflectLoopScreen() {
     }
 
     setStage('completion');
-  }, [reflectionParagraphs, completeReflection, selectedState, userStats.savedEchoCount]);
+  };
+
+  // --- Navigation helpers: always reset state before routing ---
+  const resetAndNavigate = useCallback((path: string) => {
+    setIsSubmitting(false);
+    setIsTransitingOut(true);
+    setTimeout(() => {
+      router.push(path);
+    }, getFadeDuration(600));
+  }, [router, getFadeDuration]);
 
   // --- Completion Actions ---
   const handleReturnHome = () => {
     trackEvent('completion_return_home_clicked');
-    setIsTransitingOut(true);
-    setTimeout(() => {
-      router.push('/home');
-    }, fadeDuration(600));
+    resetAndNavigate('/home');
   };
 
   const handleViewTimeline = () => {
     trackEvent('completion_view_timeline_clicked');
-    setIsTransitingOut(true);
-    setTimeout(() => {
-      router.push('/timeline');
-    }, fadeDuration(600));
+    resetAndNavigate('/timeline');
+  };
+
+  const handleViewStory = () => {
+    resetAndNavigate('/story');
   };
 
   const handleSeeStoryGlimpse = () => {
@@ -324,11 +350,8 @@ export default function UnifiedReflectLoopScreen() {
   const handleDone = () => {
     setStage('returning');
     setTimeout(() => {
-      setIsTransitingOut(true);
-      setTimeout(() => {
-        router.push('/home');
-      }, fadeDuration(800));
-    }, fadeDuration(800));
+      resetAndNavigate('/home');
+    }, getFadeDuration(800));
   };
 
   // --- Error: Retry ---
@@ -336,18 +359,18 @@ export default function UnifiedReflectLoopScreen() {
     trackEvent('reflection_retry_clicked', {
       emotionalState: selectedState || undefined,
     });
+    // Reset submitting flag, then trigger the flow fresh
+    setIsSubmitting(false);
     setStage('morphing');
     setTransitionMessage("Sitting with your words\u2026");
-    setIsSubmitting(false);
-    // Re-trigger the AI call
-    handleSealEcho();
+    // Use setTimeout to ensure React processes state updates before re-triggering
+    setTimeout(() => {
+      triggerReflectionFlow();
+    }, 50);
   };
 
   const handleErrorReturnHome = () => {
-    setIsTransitingOut(true);
-    setTimeout(() => {
-      router.push('/home');
-    }, fadeDuration(600));
+    resetAndNavigate('/home');
   };
 
   // --- Build Story Glimpse data (preserved from existing code) ---
@@ -375,7 +398,10 @@ export default function UnifiedReflectLoopScreen() {
   const fullAmbientText = glimpseParagraphs.join(" \n\n ")
     + (currentChapter.paragraphs[p2Idx + 1] ? ` \n\n ${currentChapter.paragraphs[p2Idx + 1]}` : "");
 
-  if (!isLoaded) return <main className="min-h-[100dvh] bg-[var(--color-canvas-linen)]"></main>;
+  // --- Pre-hydration / loading state ---
+  if (!isLoaded || stage === null) {
+    return <main className="min-h-[100dvh] bg-[var(--color-canvas-linen)]"></main>;
+  }
 
   return (
     <main className={`min-h-[100dvh] w-full flex flex-col items-center justify-center px-8 sm:px-12 relative overflow-hidden transition-all ease-out
@@ -384,18 +410,16 @@ export default function UnifiedReflectLoopScreen() {
     `}>
 
       {/*
-        Subtle Base Environment Darkener and Grain Washes (Surface Transformation)
+        Background layers — all pointer-events-none, safe
       */}
       <div
         className={`absolute inset-0 pointer-events-none transition-all ease-out z-0
         ${stage === 'firstEchoIntro' || stage === 'checkin' || stage === 'writing' ? 'bg-transparent opacity-0 duration-0' : 'bg-[#363532] opacity-[0.05] duration-[1200ms]'}`}
       ></div>
-      {/* 1. Expression Layer: 2% organic noise filter establishing the domain void */}
       <div
-        className={`absolute inset-0 pointer-events-none z-0 mix-blend-multiply opacity-[0.015]`}
+        className="absolute inset-0 pointer-events-none z-0 mix-blend-multiply opacity-[0.015]"
         style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}
       ></div>
-      {/* 7. Receiving Feedback: The warm wash progressively deepens directly relative to the active line array count */}
       <div
         className={`absolute inset-0 bg-[#E8E1D5] pointer-events-none transition-opacity duration-1000 ease-out z-0 mix-blend-multiply
         ${(stage === 'writing' && content.length > 0) ? '' : 'opacity-0'}
@@ -406,46 +430,41 @@ export default function UnifiedReflectLoopScreen() {
       {/* ============================================================
           STAGE: First Echo Introduction (before state selection)
           Only shown when savedEchoCount === 0
+          FIX: pointer-events-auto ONLY when this stage is active
           ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-30 pointer-events-none
-        transition-all ease-out
-        ${stage === 'firstEchoIntro'
-          ? `opacity-100 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[800ms]'}`
-          : `opacity-0 -translate-y-4 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[350ms]'} pointer-events-none`
-        }
-      `}>
-        <div className="flex flex-col items-center text-center max-w-md pointer-events-auto">
-          {/* Eyebrow */}
-          <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-60 mb-10">
-            Your first Echo
-          </span>
-
-          {/* Headline */}
-          <h1 className="font-serif text-2xl sm:text-3xl text-[var(--color-text-ink)] mb-8 leading-snug">
-            You do not need the perfect words.
-          </h1>
-
-          {/* Body */}
-          <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 max-w-[320px]">
-            Begin with what is true right now. A sentence is enough. A page is enough. This is simply a place to meet yourself honestly.
-          </p>
-
-          {/* Begin Button */}
-          <button
-            onClick={handleFirstEchoBegin}
-            className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
-          >
-            <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
-              Begin
+      {stage === 'firstEchoIntro' && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-30">
+          <div className="flex flex-col items-center text-center max-w-md">
+            <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-60 mb-10">
+              Your first Echo
             </span>
-          </button>
+
+            <h1 className="font-serif text-2xl sm:text-3xl text-[var(--color-text-ink)] mb-8 leading-snug">
+              You do not need the perfect words.
+            </h1>
+
+            <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 max-w-[320px]">
+              Begin with what is true right now. A sentence is enough. A page is enough. This is simply a place to meet yourself honestly.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleFirstEchoBegin}
+              className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
+            >
+              <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
+                Begin
+              </span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ============================================================
           STAGE: Check-In (Emotion Assembly)
+          FIX: pointer-events on buttons ONLY when checkin is active
           ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-20 transition-opacity duration-700 ease-in pointer-events-none
+      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-20 pointer-events-none transition-opacity duration-700 ease-in
         ${stage === 'checkin' ? 'opacity-100' : 'opacity-0'}
       `}>
         <header className={`mb-20 text-center transition-all duration-700 ease-out
@@ -463,11 +482,13 @@ export default function UnifiedReflectLoopScreen() {
 
             return (
               <button
+                type="button"
                 key={stateInfo.id}
                 onClick={() => handleSelection(stateInfo.id)}
                 disabled={hasSelection}
                 className={`
-                  group flex flex-col items-center justify-center p-4 focus:outline-none pointer-events-auto
+                  group flex flex-col items-center justify-center p-4 focus:outline-none
+                  ${stage === 'checkin' ? 'pointer-events-auto' : 'pointer-events-none'}
                   ${hasSelection && !isSelected ? 'opacity-0 blur-[8px] transition-all duration-[500ms] ease-out' : 'opacity-80 hover:opacity-100 transition-all duration-[400ms] ease-out'}
                   ${isSelected && !checkInDisappearing ? 'opacity-100 scale-[1.05] transition-all duration-[400ms] ease-out' : ''}
                   ${isSelected && checkInDisappearing ? 'opacity-0 -translate-y-16 blur-sm transition-all duration-[800ms] ease-in-out' : ''}
@@ -493,22 +514,21 @@ export default function UnifiedReflectLoopScreen() {
           STAGE: Writing (Contiguous Input Layer)
           ============================================================ */}
       <div className={`absolute top-0 w-full max-w-[520px] flex flex-col pt-[24vh] px-6 sm:px-8 transition-all ease-in-out z-10
-        ${stage === 'firstEchoIntro' || stage === 'checkin' ? 'opacity-0 translate-y-8 duration-0 pointer-events-none' : ''}
+        ${stage === 'checkin' || stage === 'firstEchoIntro' ? 'opacity-0 translate-y-8 duration-0 pointer-events-none' : ''}
         ${stage === 'writing' ? 'opacity-100 scale-100 blur-0 translate-y-0 duration-[1000ms] pointer-events-auto' : ''}
         ${stage === 'morphing' ? `opacity-0 scale-100 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[400ms]'} pointer-events-none` : ''}
-        ${(stage === 'reflection' || stage === 'completion' || stage === 'reveal' || stage === 'error') ? 'opacity-0 scale-100 pointer-events-none duration-0' : ''}
+        ${stage !== 'checkin' && stage !== 'firstEchoIntro' && stage !== 'writing' && stage !== 'morphing' ? 'opacity-0 pointer-events-none duration-0' : ''}
       `}>
         {/* Invitation */}
         <div className={`mb-24 sm:mb-32 transition-all duration-[800ms] pointer-events-none
-          ${stage === 'firstEchoIntro' || stage === 'checkin' ? 'opacity-0' : ''}
           ${stage === 'writing' && content.length === 0 ? 'opacity-70 translate-y-0 blur-0' : ''}
           ${stage === 'writing' && content.length > 0 ? 'opacity-0 -translate-y-2 blur-sm absolute' : ''}
-          ${stage !== 'firstEchoIntro' && stage !== 'checkin' && stage !== 'writing' ? 'opacity-0 hidden' : ''}
+          ${stage !== 'writing' ? 'opacity-0' : ''}
         `}>
           <h2 className="font-serif text-[20px] sm:text-[22px] text-[var(--color-text-ink)] text-left italic font-light tracking-wide">
             {invitation}
           </h2>
-          {isFirstEcho && userStats.savedEchoCount === 0 && (
+          {showFirstEchoUI && (
             <p className="font-serif italic text-sm text-[var(--color-text-graphite)] opacity-50 mt-4">
               {FIRST_INVITATION_SUPPORT}
             </p>
@@ -525,7 +545,6 @@ export default function UnifiedReflectLoopScreen() {
           placeholder={placeholderText}
           className={`w-full bg-transparent resize-none outline-none font-serif text-[21px] sm:text-2xl lg:text-[26px] text-[var(--color-text-ink)] leading-[1.8] sm:leading-[1.9] min-h-[50vh] focus:outline-none transition-all duration-[180ms] ease-out placeholder:text-[var(--color-text-graphite)]/30 placeholder:italic
             ${isTyping ? 'opacity-95 translate-y-[2px]' : 'opacity-100 translate-y-0'}
-            ${stage === 'morphing' ? 'opacity-40 translate-y-2 blur-[1px] pointer-events-none' : ''}
           `}
           style={{
             caretColor: 'var(--color-text-graphite)',
@@ -534,8 +553,8 @@ export default function UnifiedReflectLoopScreen() {
         />
 
         {/* First-Echo reassurance */}
-        {isFirstEcho && userStats.savedEchoCount === 0 && stage === 'writing' && (
-          <p className={`absolute bottom-28 left-6 right-6 text-center font-sans text-[11px] text-[var(--color-text-graphite)] opacity-40 transition-opacity duration-500
+        {showFirstEchoUI && stage === 'writing' && (
+          <p className={`absolute bottom-28 left-6 right-6 text-center font-sans text-[11px] text-[var(--color-text-graphite)] transition-opacity duration-500
             ${content.length > 0 ? 'opacity-0' : 'opacity-40'}
           `}>
             There is no right way to begin.
@@ -545,20 +564,21 @@ export default function UnifiedReflectLoopScreen() {
 
       {/* Save Error Message */}
       {saveError && stage === 'writing' && (
-        <div className="absolute bottom-32 left-8 right-8 flex justify-center z-30">
+        <div className="absolute bottom-32 left-8 right-8 flex justify-center z-30 pointer-events-none">
           <p className="font-sans text-sm text-[var(--color-text-ink)] bg-[var(--color-canvas-stone)] px-6 py-4 rounded-sm text-center max-w-md">
             We could not save this yet. Your words are still here. Please try again.
           </p>
         </div>
       )}
 
-      {/* Submit Button */}
+      {/* Submit Button — only interactive when in writing stage */}
       <div
         className={`absolute bottom-20 flex justify-center w-full transition-all duration-[800ms] ease-out z-20
           ${stage === 'writing' && content.trim().length >= 10 && !isSubmitting ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-2'}
         `}
       >
         <button
+          type="button"
           onClick={handleSealEcho}
           disabled={stage !== 'writing' || isSubmitting}
           className="group flex flex-col items-center focus:outline-none transition-transform duration-300 active:scale-[0.98] active:opacity-60"
@@ -572,6 +592,7 @@ export default function UnifiedReflectLoopScreen() {
       {/* ============================================================
           STAGE: Morphing / Ceremonial Transition
           "Sitting with your words…" → "Finding the thread…"
+          Always pointer-events-none — no interactive elements
           ============================================================ */}
       <div
         className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center z-30 pointer-events-none
@@ -592,22 +613,18 @@ export default function UnifiedReflectLoopScreen() {
       {/* ============================================================
           STAGE: Reflection Display
           3 paragraphs: Mirror → Notice → Carry Forward
+          FIX: pointer-events-auto ONLY when reflection stage active
           ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-start z-30 overflow-y-auto no-scrollbar pointer-events-none
+      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-start z-30 overflow-y-auto no-scrollbar
         transition-all ease-out
         ${stage === 'reflection'
           ? `opacity-100 blur-0 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[500ms]'} pointer-events-auto`
-          : ''
+          : 'opacity-0 pointer-events-none'
         }
-        ${stage === 'completion' || stage === 'reveal'
-          ? `opacity-0 blur-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[350ms]'}`
-          : ''
-        }
-        ${stage !== 'reflection' && stage !== 'completion' && stage !== 'reveal' ? 'opacity-0' : ''}
       `}
       style={{ WebkitOverflowScrolling: 'auto', overscrollBehavior: 'none' }}
       >
-        <div className={`w-full max-w-lg px-6 sm:px-8 pt-[26vh] pb-[30vh] ${stage === 'reflection' ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+        <div className="w-full max-w-lg px-6 sm:px-8 pt-[26vh] pb-[30vh]">
           {reflectionParagraphs.map((paragraph, idx) => (
             <p
               key={idx}
@@ -620,7 +637,7 @@ export default function UnifiedReflectLoopScreen() {
               `}
               style={{
                 transitionDelay: showReflection && !prefersReducedMotion
-                  ? `${idx * 90}ms`  // 80-100ms stagger between paragraphs
+                  ? `${idx * 90}ms`
                   : '0ms'
               }}
             >
@@ -634,7 +651,7 @@ export default function UnifiedReflectLoopScreen() {
               transition-all ease-out
               ${showReflection && stage === 'reflection'
                 ? `opacity-100 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[600ms]'}`
-                : 'opacity-0 translate-y-2 pointer-events-none duration-0'
+                : 'opacity-0 translate-y-2 duration-0'
               }
             `}
             style={{
@@ -644,6 +661,7 @@ export default function UnifiedReflectLoopScreen() {
             }}
           >
             <button
+              type="button"
               onClick={handleCompleteEcho}
               disabled={stage !== 'reflection'}
               className="group flex flex-col items-center focus:outline-none transition-all duration-300 active:scale-[0.98] active:opacity-60"
@@ -659,228 +677,259 @@ export default function UnifiedReflectLoopScreen() {
       {/* ============================================================
           STAGE: Completion Moment
           "Another page has been added to your story."
+          FIX: pointer-events-auto ONLY when completion stage active
           ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-40 pointer-events-none
-        transition-all ease-out
-        ${stage === 'completion'
-          ? `opacity-100 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[450ms]'} pointer-events-auto`
-          : `opacity-0 translate-y-4 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[350ms]'}`
-        }
-      `}
-      role="region"
-      aria-label="Echo completion"
-      >
-        <div className="flex flex-col items-center text-center max-w-md">
-          {/* Headline */}
-          <h2 className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] mb-6 leading-snug">
-            Another page has been added to your story.
-          </h2>
+      {stage === 'completion' && (
+        <div
+          className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-40
+            animate-[fadeIn_${prefersReducedMotion ? '0.2' : '0.45'}s_ease-out_forwards]
+          `}
+          role="region"
+          aria-label="Echo completion"
+        >
+          <div className="flex flex-col items-center text-center max-w-md">
+            <h2 className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] mb-6 leading-snug">
+              Another page has been added to your story.
+            </h2>
 
-          {/* Supporting */}
-          <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 opacity-70">
-            What you shared today is now part of something larger.
-          </p>
+            <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 opacity-70">
+              What you shared today is now part of something larger.
+            </p>
 
-          {/* Actions */}
-          <div className="flex flex-col items-center gap-10">
-            {/* Primary: Return Home */}
-            <button
-              onClick={handleReturnHome}
-              className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
-            >
-              <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
-                Return Home
-              </span>
-            </button>
-
-            {/* Secondary: View Timeline */}
-            <button
-              onClick={handleViewTimeline}
-              className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
-            >
-              <span className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-[11px] tracking-[0.2em] uppercase opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
-                View Timeline
-              </span>
-            </button>
-
-            {/* Milestone: See what is beginning to form → */}
-            {willBeMilestone && (
+            <div className="flex flex-col items-center gap-10">
+              {/* Primary: Return Home */}
               <button
-                onClick={handleSeeStoryGlimpse}
-                className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60 mt-4"
+                type="button"
+                onClick={handleReturnHome}
+                className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
               >
-                <span className="font-serif italic text-sm sm:text-[15px] tracking-wide text-[var(--color-text-graphite)] opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
-                  See what is beginning to form &rarr;
+                <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
+                  Return Home
                 </span>
               </button>
-            )}
+
+              {/* Secondary: View Timeline */}
+              <button
+                type="button"
+                onClick={handleViewTimeline}
+                className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
+              >
+                <span className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-[11px] tracking-[0.2em] uppercase opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
+                  View Timeline
+                </span>
+              </button>
+
+              {/* Tertiary: View Your Story */}
+              <button
+                type="button"
+                onClick={handleViewStory}
+                className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
+              >
+                <span className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-[11px] tracking-[0.2em] uppercase opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
+                  View Your Story &rarr;
+                </span>
+              </button>
+
+              {/* Milestone: See what is beginning to form → */}
+              {willBeMilestone && (
+                <button
+                  type="button"
+                  onClick={handleSeeStoryGlimpse}
+                  className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60 mt-4"
+                >
+                  <span className="font-serif italic text-sm sm:text-[15px] tracking-wide text-[var(--color-text-graphite)] opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
+                    See what is beginning to form &rarr;
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ============================================================
           STAGE: Error (AI Reflection Failed)
+          FIX: Only rendered when error stage active — prevents blocking
           ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-40 pointer-events-none
-        transition-all ease-out
-        ${stage === 'error'
-          ? `opacity-100 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[450ms]'} pointer-events-auto`
-          : 'opacity-0 translate-y-4 duration-[200ms]'
-        }
-      `}
-      role="alert"
-      >
-        <div className="flex flex-col items-center text-center max-w-md">
-          <h2 className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] mb-6 leading-snug">
-            Your words have been kept.
-          </h2>
+      {stage === 'error' && (
+        <div
+          className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-40
+            animate-[fadeIn_${prefersReducedMotion ? '0.2' : '0.45'}s_ease-out_forwards]
+          `}
+          role="alert"
+        >
+          <div className="flex flex-col items-center text-center max-w-md">
+            <h2 className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] mb-6 leading-snug">
+              Your words have been kept.
+            </h2>
 
-          <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 opacity-70">
-            Kairo could not complete the Reflection just yet. You can return to it when it is ready.
-          </p>
+            <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 opacity-70">
+              Kairo could not complete the Reflection just yet. You can return to it when it is ready.
+            </p>
 
-          <div className="flex flex-col items-center gap-10">
-            <button
-              onClick={handleErrorReturnHome}
-              className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
-            >
-              <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
-                Return Home
-              </span>
-            </button>
+            <div className="flex flex-col items-center gap-10">
+              <button
+                type="button"
+                onClick={handleErrorReturnHome}
+                className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
+              >
+                <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
+                  Return Home
+                </span>
+              </button>
 
-            <button
-              onClick={handleRetry}
-              className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
-            >
-              <span className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-[11px] tracking-[0.2em] uppercase opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
-                Try Again
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
+              >
+                <span className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-[11px] tracking-[0.2em] uppercase opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
+                  Try Again
+                </span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ============================================================
           STAGE: Reveal (Story Glimpse — Milestone Only)
-          Preserved from existing code, triggered only on milestone echoes
+          FIX: Only rendered when reveal stage active — prevents blocking
           ============================================================ */}
+      {stage === 'reveal' && (
+        <>
+          {/* Reveal Macro-Structure Overlay — 8% environmental dim */}
+          <div
+            className="absolute inset-0 bg-[var(--color-canvas-stone)] pointer-events-none z-40 mix-blend-multiply opacity-[0.08]"
+          ></div>
 
-      {/* Reveal Macro-Structure Overlay — 8% environmental dim bounds */}
-      <div
-        className={`absolute inset-0 bg-[var(--color-canvas-stone)] pointer-events-none transition-opacity ease-out z-40 mix-blend-multiply
-        ${stage === 'reveal' ? 'opacity-[0.08] duration-[800ms]' : 'opacity-0 duration-[1000ms]'}
-        `}
-      ></div>
+          {/* Theatrical Refinement Washes */}
+          <div
+            className="absolute inset-0 bg-[#D8CBB6] pointer-events-none z-40 mix-blend-multiply animate-[fadeIn_2s_ease-out_forwards] opacity-0"
+            style={{ '--tw-opacity': '0.06' } as React.CSSProperties}
+          ></div>
+          <div
+            className="absolute inset-0 pointer-events-none z-40 animate-[fadeIn_2s_ease-out_forwards] opacity-0"
+            style={{ background: 'radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.035) 100%)' }}
+          ></div>
 
-      {/* Theatrical Refinement Washes (Paper tone + Vignette) */}
-      <div
-        className={`absolute inset-0 bg-[#D8CBB6] pointer-events-none transition-opacity ease-out z-40 mix-blend-multiply
-        ${stage === 'reveal' ? 'opacity-[0.06] duration-[2000ms]' : 'opacity-0 duration-[1000ms]'}
-        `}
-      ></div>
-      <div
-        className={`absolute inset-0 pointer-events-none transition-opacity ease-out z-40
-        ${stage === 'reveal' ? 'opacity-100 duration-[2000ms]' : 'opacity-0 duration-[1000ms]'}
-        `}
-        style={{ background: 'radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.035) 100%)' }}
-      ></div>
+          {/* Story Glimpse Content */}
+          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-50 overflow-hidden">
 
-      {/* Story Glimpse Content */}
-      <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-50 pointer-events-none overflow-hidden">
+            {/* The Ephemeral Bridge Line */}
+            <div
+              className="absolute w-full flex justify-center pointer-events-none z-10 animate-[bridgeLineFade_3.5s_ease-in-out_forwards]"
+              style={{ animationDelay: '800ms' }}
+            >
+              <p className="font-serif italic text-lg sm:text-xl text-[var(--color-text-ink)]/70">
+                Your story gathers...
+              </p>
+            </div>
 
-        {/* The Ephemeral Bridge Line */}
-        <div className={`absolute w-full flex justify-center pointer-events-none z-10
-          ${stage === 'reveal' ? 'animate-[bridgeLineFade_3.5s_ease-in-out_forwards]' : 'opacity-0'}
-        `}
-        style={{ animationDelay: stage === 'reveal' ? '800ms' : '0ms' }}
-        >
-          <p className="font-serif italic text-lg sm:text-xl text-[var(--color-text-ink)]/70">
-            Your story gathers...
-          </p>
-        </div>
+            {/* The Glimpse Body */}
+            <div
+              className="relative z-20 w-full max-w-[440px] flex flex-col items-center justify-start opacity-0 translate-y-6 transition-all duration-[1500ms] ease-[cubic-bezier(0.33,1,0.68,1)]"
+              style={{ transitionDelay: '3200ms' }}
+              ref={(el) => {
+                // Trigger transition after mount
+                if (el) requestAnimationFrame(() => {
+                  el.style.opacity = '1';
+                  el.style.transform = 'translateY(0)';
+                });
+              }}
+            >
+               <header className="flex flex-col items-center text-center mb-16 sm:mb-20">
+                 <h3
+                   className="font-serif text-[19px] sm:text-[21px] text-[var(--color-text-ink)] mb-5 opacity-0 translate-y-3 transition-all duration-[1500ms] ease-out"
+                   style={{ transitionDelay: '3800ms' }}
+                   ref={(el) => {
+                     if (el) requestAnimationFrame(() => {
+                       el.style.opacity = '1';
+                       el.style.transform = 'translateY(0)';
+                     });
+                   }}
+                 >
+                   {currentChapter.title}
+                 </h3>
+                 <p
+                   className="font-serif italic text-[12px] sm:text-[13px] tracking-[0.03em] text-[var(--color-text-graphite)]/50 opacity-0 translate-y-3 transition-all duration-[1500ms] ease-out"
+                   style={{ transitionDelay: '4200ms' }}
+                   ref={(el) => {
+                     if (el) requestAnimationFrame(() => {
+                       el.style.opacity = '1';
+                       el.style.transform = 'translateY(0)';
+                     });
+                   }}
+                 >
+                   {totalEchoCount % 3 === 0
+                      ? "Your story is beginning to take shape."
+                      : `${3 - (totalEchoCount % 3)} more Echo${(3 - (totalEchoCount % 3)) === 1 ? '' : 's'} will reveal your next passage.`
+                   }
+                 </p>
+               </header>
 
-        {/* The Glimpse Body */}
-        <div className={`relative z-20 w-full max-w-[440px] flex flex-col items-center justify-start transition-all duration-[1500ms] ease-[cubic-bezier(0.33,1,0.68,1)]
-            ${stage === 'reveal' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}
-          `}
-          style={{ transitionDelay: stage === 'reveal' ? '3200ms' : '0ms' }}
-        >
-           <header className="flex flex-col items-center text-center mb-16 sm:mb-20">
-             <h3 className={`font-serif text-[19px] sm:text-[21px] text-[var(--color-text-ink)] mb-5 transition-all duration-[1500ms] ease-out
-                 ${stage === 'reveal' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}
-               `}
-               style={{ transitionDelay: stage === 'reveal' ? '3800ms' : '0ms' }}
-             >
-               {currentChapter.title}
-             </h3>
-             <p className={`font-serif italic text-[12px] sm:text-[13px] tracking-[0.03em] text-[var(--color-text-graphite)]/50 transition-all duration-[1500ms] ease-out
-                 ${stage === 'reveal' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}
-               `}
-               style={{ transitionDelay: stage === 'reveal' ? '4200ms' : '0ms' }}
-             >
-               {totalEchoCount % 3 === 0
-                  ? "Your story is beginning to take shape."
-                  : `${3 - (totalEchoCount % 3)} more Echo${(3 - (totalEchoCount % 3)) === 1 ? '' : 's'} will reveal your next passage.`
-               }
-             </p>
-           </header>
+               {/* The Deep Optical Blur Geometry Stack */}
+               <div
+                 className="relative w-full px-6 sm:px-12 opacity-0 translate-y-4 transition-all duration-[2400ms] ease-out"
+                 style={{ transitionDelay: '4800ms' }}
+                 ref={(el) => {
+                   if (el) requestAnimationFrame(() => {
+                     el.style.opacity = '1';
+                     el.style.transform = 'translateY(0)';
+                   });
+                 }}
+               >
+                 <p className="font-serif text-[16px] sm:text-[17px] font-light leading-[1.8] sm:leading-[1.9] text-left text-[var(--color-text-ink)]/90 whitespace-pre-wrap select-none"
+                    style={{
+                      maskImage: 'linear-gradient(to bottom, black 0%, black 28px, rgba(0,0,0,0.4) 50px, transparent 65px)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 28px, rgba(0,0,0,0.4) 50px, transparent 65px)'
+                    }}
+                 >
+                   {fullAmbientText || "The quiet presence of time unfolding."}
+                 </p>
 
-           {/* The Deep Optical Blur Geometry Stack - 3 overlapping geometric text nodes */}
-           <div className={`relative w-full px-6 sm:px-12 transition-all duration-[2400ms] ease-out
-               ${stage === 'reveal' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
-             `}
-             style={{ transitionDelay: stage === 'reveal' ? '4800ms' : '0ms' }}
-           >
+                 <p className="absolute top-0 left-6 right-6 sm:left-12 sm:right-12 font-serif text-[16px] sm:text-[17px] font-light leading-[1.8] sm:leading-[1.9] text-left text-[var(--color-text-ink)]/60 blur-[2px] whitespace-pre-wrap select-none"
+                    style={{
+                      maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 28px, black 50px, rgba(0,0,0,0.4) 75px, transparent 100px)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 28px, black 50px, rgba(0,0,0,0.4) 75px, transparent 100px)'
+                    }}
+                 >
+                   {fullAmbientText || "The quiet presence of time unfolding."}
+                 </p>
 
-             {/* Plane 1: Sharp Emergence (100% to 60%) */}
-             <p className="font-serif text-[16px] sm:text-[17px] font-light leading-[1.8] sm:leading-[1.9] text-left text-[var(--color-text-ink)]/90 whitespace-pre-wrap select-none"
-                style={{
-                  maskImage: 'linear-gradient(to bottom, black 0%, black 28px, rgba(0,0,0,0.4) 50px, transparent 65px)',
-                  WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 28px, rgba(0,0,0,0.4) 50px, transparent 65px)'
-                }}
-             >
-               {fullAmbientText || "The quiet presence of time unfolding."}
-             </p>
+                 <p className="absolute top-0 left-6 right-6 sm:left-12 sm:right-12 font-serif text-[16px] sm:text-[17px] font-light leading-[1.8] sm:leading-[1.9] text-left text-[var(--color-text-graphite)]/25 blur-[5px] whitespace-pre-wrap select-none mix-blend-multiply"
+                    style={{
+                      maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 60px, black 90px, black 160px, transparent 240px)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 60px, black 90px, black 160px, transparent 240px)'
+                    }}
+                 >
+                   {fullAmbientText || "The quiet presence of time unfolding."}
+                 </p>
+               </div>
 
-             {/* Plane 2: Softened Continuation (Light Blur) */}
-             <p className="absolute top-0 left-6 right-6 sm:left-12 sm:right-12 font-serif text-[16px] sm:text-[17px] font-light leading-[1.8] sm:leading-[1.9] text-left text-[var(--color-text-ink)]/60 blur-[2px] whitespace-pre-wrap select-none"
-                style={{
-                  maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 28px, black 50px, rgba(0,0,0,0.4) 75px, transparent 100px)',
-                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 28px, black 50px, rgba(0,0,0,0.4) 75px, transparent 100px)'
-                }}
-             >
-               {fullAmbientText || "The quiet presence of time unfolding."}
-             </p>
+               {/* Return button */}
+               <button
+                 type="button"
+                 onClick={handleDone}
+                 className="group flex flex-col items-center focus:outline-none mt-32 sm:mt-40 active:scale-[0.98] opacity-0 translate-y-4 transition-all duration-[2000ms]"
+                 style={{ transitionDelay: '7000ms' }}
+                 ref={(el) => {
+                   if (el) requestAnimationFrame(() => {
+                     el.style.opacity = '1';
+                     el.style.transform = 'translateY(0)';
+                   });
+                 }}
+               >
+                 <span className="font-sans text-[var(--color-text-graphite)] text-[10px] tracking-[0.25em] uppercase opacity-40 group-hover:opacity-80 transition-opacity duration-[600ms]">
+                   Return
+                 </span>
+               </button>
 
-             {/* Plane 3: The Deep Ghost (Heavy Blur memory) */}
-             <p className="absolute top-0 left-6 right-6 sm:left-12 sm:right-12 font-serif text-[16px] sm:text-[17px] font-light leading-[1.8] sm:leading-[1.9] text-left text-[var(--color-text-graphite)]/25 blur-[5px] whitespace-pre-wrap select-none mix-blend-multiply"
-                style={{
-                  maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 60px, black 90px, black 160px, transparent 240px)',
-                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 60px, black 90px, black 160px, transparent 240px)'
-                }}
-             >
-               {fullAmbientText || "The quiet presence of time unfolding."}
-             </p>
-           </div>
+            </div>
 
-           {/* Manual Exit */}
-           <button
-             onClick={handleDone}
-             disabled={stage !== 'reveal'}
-             className={`group flex flex-col items-center focus:outline-none transition-all duration-[2000ms] mt-32 sm:mt-40 active:scale-[0.98] pointer-events-auto
-               ${stage === 'reveal' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
-             `}
-             style={{ transitionDelay: stage === 'reveal' ? '7000ms' : '0ms' }}
-           >
-             <span className="font-sans text-[var(--color-text-graphite)] text-[10px] tracking-[0.25em] uppercase opacity-40 group-hover:opacity-80 transition-opacity duration-[600ms]">
-               Return
-             </span>
-           </button>
-
-        </div>
-
-      </div>
+          </div>
+        </>
+      )}
 
     </main>
   );

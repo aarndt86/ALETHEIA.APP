@@ -43,6 +43,7 @@ export default function HomeGatewayScreen() {
       {/* Profile Icon Overlay (Anchored to Space) */}
       <div className="absolute top-8 right-8 sm:top-12 sm:right-12 z-20 opacity-0 animate-[fadeItem_1.5s_ease-out_1s_forwards]">
         <button 
+          type="button"
           onClick={() => router.push('/profile')}
           className="w-10 h-10 rounded-full flex flex-col items-center justify-center border border-[var(--color-text-graphite)]/20 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] hover:border-[var(--color-text-graphite)]/40 transition-all duration-[400ms] focus:outline-none active:scale-[0.96]"
           aria-label="Profile Settings"
@@ -73,6 +74,7 @@ export default function HomeGatewayScreen() {
         {/* 2. Primary Action / Emotional Anchor (Perfect Center) */}
         <div className="w-full flex-1 flex flex-col items-center justify-center">
           <button 
+            type="button"
             onClick={handleReflect}
             className="group focus:outline-none transition-transform duration-700 active:scale-[0.98]"
             style={{ animation: 'fadeItem 800ms cubic-bezier(0.33, 1, 0.68, 1) 200ms both' }}
@@ -90,6 +92,7 @@ export default function HomeGatewayScreen() {
         {/* 3. Secondary Action / Dashboard (Lower Third) */}
         <div className="w-full flex justify-center">
           <button 
+            type="button"
             onClick={handleKairo}
             className="group flex flex-col items-center focus:outline-none transition-transform duration-500 active:scale-[0.98] active:opacity-60"
             style={{ animation: 'fadeItem 800ms cubic-bezier(0.33, 1, 0.68, 1) 400ms both' }}

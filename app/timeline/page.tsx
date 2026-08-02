@@ -239,6 +239,7 @@ export default function TimelineScreen() {
           <div className="max-w-3xl w-full mx-auto">
             
             <button 
+              type="button"
               onClick={handleCloseDetail}
               className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors self-start mb-16 sm:mb-24 focus:outline-none"
               aria-label="Close entry and return to archive"
@@ -284,6 +285,7 @@ export default function TimelineScreen() {
             <div className="mt-24 sm:mt-32 pb-32 flex flex-col items-center gap-12 sm:gap-16">
               
               <button 
+                type="button"
                 onClick={() => handleJumpToStory(selectedEntry.storyMapping)}
                 className="font-serif italic text-sm sm:text-[15px] tracking-wide text-[var(--color-text-graphite)]/80 hover:text-[var(--color-text-ink)] transition-colors duration-500 focus:outline-none"
               >
@@ -291,6 +293,7 @@ export default function TimelineScreen() {
               </button>
 
               <button 
+                type="button"
                 onClick={handleCloseDetail}
                 className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-xs tracking-[0.2em] uppercase hover:text-[var(--color-text-ink)] transition-colors duration-500 focus:outline-none"
               >

@@ -32,6 +32,7 @@ export default function KairoDashboard() {
           </h1>
           
           <button 
+            type="button"
             onClick={() => navigateTo('/profile')}
             className="absolute right-0 w-8 h-8 rounded-full flex flex-col items-center justify-center border border-[var(--color-text-graphite)]/10 text-[var(--color-text-graphite)]/40 hover:text-[var(--color-text-graphite)]/70 hover:border-[var(--color-text-graphite)]/25 transition-all duration-[500ms] focus:outline-none active:scale-[0.96]"
             aria-label="Profile Settings"
@@ -45,6 +46,7 @@ export default function KairoDashboard() {
           
           {/* New Echo (Starts Reflect Loop) */}
           <button 
+            type="button"
             onClick={() => navigateTo('/echo')}
             className="group flex flex-col items-center text-center focus:outline-none transition-all duration-[600ms] opacity-[0.95] hover:opacity-100 active:scale-[1.02] active:opacity-100"
           >
@@ -58,6 +60,7 @@ export default function KairoDashboard() {
 
           {/* Timeline (Archive) */}
           <button 
+            type="button"
             onClick={() => navigateTo('/timeline')}
             className="group flex flex-col items-center text-center focus:outline-none transition-all duration-[600ms] opacity-[0.95] hover:opacity-100 active:scale-[1.02] active:opacity-100"
           >
@@ -71,6 +74,7 @@ export default function KairoDashboard() {
 
           {/* Story (Book Reveal) */}
           <button 
+            type="button"
             onClick={() => navigateTo('/story')}
             className="group flex flex-col items-center text-center focus:outline-none transition-all duration-[600ms] opacity-[0.95] hover:opacity-100 active:scale-[1.02] active:opacity-100"
           >

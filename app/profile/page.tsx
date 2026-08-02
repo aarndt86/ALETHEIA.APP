@@ -21,6 +21,7 @@ export default function ProfileScreen() {
           Preferences
         </h1>
         <button 
+          type="button"
           onClick={handleClose}
           className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors focus:outline-none active:scale-95"
         >

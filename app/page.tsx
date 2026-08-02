@@ -118,6 +118,7 @@ export default function ThresholdScreen() {
 
         {/* Primary Unlocking Action */}
         <button 
+           type="button"
            onClick={handleEnter}
            className="group flex flex-col items-center focus:outline-none animate-[fadeIn_3s_ease-out_forwards] opacity-0 pb-4"
            style={{ animationDelay: '6s' }}
