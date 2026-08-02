@@ -64,7 +64,7 @@ const isEmpty = false;
 
 export default function TimelineScreen() {
   const router = useRouter();
-  const { isTransitioningToBook } = useAppContext();
+  const { isTransitioningToBook, showPreservedMicrocopy, clearPreservedMicrocopy } = useAppContext();
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [isExpanding, setIsExpanding] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -183,6 +183,16 @@ export default function TimelineScreen() {
                       "{entry.preview}"
                     </p>
                     
+                    {/* Preserved in your story — newest entry only, after completion */}
+                    {groupIdx === 0 && entryIdx === 0 && showPreservedMicrocopy && (
+                      <p 
+                        className="font-sans text-[9px] tracking-[0.15em] uppercase text-[var(--color-accent-sage)] opacity-50 mb-4"
+                        onAnimationEnd={clearPreservedMicrocopy}
+                      >
+                        Preserved in your story.
+                      </p>
+                    )}
+
                     {/* Faint Typographic Date / State Meta */}
                     <div className="flex items-center justify-center gap-6 opacity-30 group-hover:opacity-60 transition-opacity duration-500">
                       <span className="font-sans text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)]">

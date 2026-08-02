@@ -107,7 +107,7 @@ export default function ThresholdScreen() {
         </p>
 
         <p className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[#A89F91] mb-24 animate-[fadeInUp_3s_cubic-bezier(0.33,1,0.68,1)_forwards] opacity-0" style={{ animationDelay: '3s' }}>
-          Aletheia helps you return to what matters.
+          Kairo helps you return to what matters.
         </p>
 
         {/* Elite Personalized Micro-Moment */}
@@ -124,7 +124,7 @@ export default function ThresholdScreen() {
            aria-label="Unlock your inner world"
         >
            <span className="font-sans text-[#EAE8DD]/80 text-[10px] sm:text-[11px] tracking-[0.3em] uppercase border-b border-transparent group-hover:border-[#A89F91]/60 group-hover:text-[#F5F2EB] group-hover:drop-shadow-[0_0_8px_rgba(245,242,235,0.4)] pb-3 transition-all duration-[800ms] ease-out">
-             Enter Aletheia &rarr;
+             Enter Kairo &rarr;
            </span>
         </button>
 
@@ -143,7 +143,7 @@ export default function ThresholdScreen() {
               type="email" 
               placeholder="Email" 
               required 
-              defaultValue="austin@aletheia.app"
+              defaultValue="austin@kairo.app"
               className="w-full bg-transparent border-b border-[#EAE8DD]/20 px-0 py-3 text-[#F5F2EB] placeholder:text-[#EAE8DD]/30 font-sans text-sm tracking-wide focus:outline-none focus:border-[#A89F91] transition-colors" 
              />
              <input 

@@ -17,7 +17,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Aletheia",
+  title: "Kairo",
   description: "A calm, reflective, literary experience.",
 };
 
