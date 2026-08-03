@@ -26,6 +26,8 @@ interface UserStats {
   lastInsightCompletedAt: string | null;
   lastInsightShownAtEcho: number;
   insightIntroSeen: boolean;
+  // Revelation animation persistence
+  lastAnimatedRevealEchoCount: number;
 }
 
 interface AppContextType {
@@ -61,6 +63,10 @@ interface AppContextType {
   markInsightSkipped: () => void;
   markInsightIntroSeen: () => void;
 
+  // Revelation animation persistence
+  markRevealAnimated: () => void;
+  lastAnimatedRevealEchoCount: number;
+
   // Session flags
   showPreservedMicrocopy: boolean;
   clearPreservedMicrocopy: () => void;
@@ -87,6 +93,7 @@ const DEFAULT_STATS: UserStats = {
   lastInsightCompletedAt: null,
   lastInsightShownAtEcho: 0,
   insightIntroSeen: false,
+  lastAnimatedRevealEchoCount: 0,
 };
 
 // --- Helpers ---
@@ -228,6 +235,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // --- Revelation: Mark animation as played ---
+  const markRevealAnimated = useCallback(() => {
+    setUserStats(prev => ({
+      ...prev,
+      lastAnimatedRevealEchoCount: prev.totalEchoCount,
+    }));
+  }, []);
+
   const clearPreservedMicrocopy = useCallback(() => {
     setShowPreservedMicrocopy(false);
   }, []);
@@ -260,6 +275,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       markInsightCompleted,
       markInsightSkipped,
       markInsightIntroSeen,
+      markRevealAnimated,
+      lastAnimatedRevealEchoCount: userStats.lastAnimatedRevealEchoCount,
       showPreservedMicrocopy,
       clearPreservedMicrocopy,
       shouldShowInsight,

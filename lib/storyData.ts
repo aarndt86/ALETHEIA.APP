@@ -203,5 +203,39 @@ export function getSentencesForParagraph(chapterIndex: number, paragraphIndex: n
   );
 }
 
+// --- Unique sentence ID ---
+export function getSentenceId(ref: SentenceRef): string {
+  return `c${ref.chapterIndex}-p${ref.paragraphIndex}-s${ref.sentenceIndex}`;
+}
+
+// --- V1.3: Compute newly revealed sentences ---
+// Compares the Story state before and after the current Echo
+// to identify exactly which sentences were unlocked by this Echo.
+export interface RevealDiff {
+  /** Sentences that were already readable before this Echo */
+  previouslyRevealed: SentenceRef[];
+  /** Sentences newly unlocked by this specific Echo */
+  newlyRevealed: SentenceRef[];
+  /** Whether this Echo caused any new text to appear */
+  hasNewReveal: boolean;
+  /** Whether this is the very first sentence ever revealed */
+  isFirstReveal: boolean;
+}
+
+export function getNewlyRevealedSentences(currentEchoCount: number): RevealDiff {
+  const prevCount = getSentencesRevealedForEchoCount(currentEchoCount - 1);
+  const currCount = getSentencesRevealedForEchoCount(currentEchoCount);
+
+  const previouslyRevealed = ALL_SENTENCES.slice(0, prevCount);
+  const newlyRevealed = ALL_SENTENCES.slice(prevCount, currCount);
+
+  return {
+    previouslyRevealed,
+    newlyRevealed,
+    hasNewReveal: newlyRevealed.length > 0,
+    isFirstReveal: prevCount === 0 && currCount > 0,
+  };
+}
+
 // --- Export for testing ---
-export { ALL_SENTENCES, splitIntoSentences };
+export { ALL_SENTENCES, splitIntoSentences, getSentencesRevealedForEchoCount };
