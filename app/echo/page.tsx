@@ -82,8 +82,10 @@ export default function UnifiedReflectLoopScreen() {
   const [transitionMessage, setTransitionMessage] = useState("Sitting with your words.");
   const [showReflection, setShowReflection] = useState(false);
 
-  // Revelation state
-  const [showRevelation, setShowRevelation] = useState(false);
+  // Revelation phase: the timed sequence from Reflection → Revelation
+  // idle → dissolving (reflection fades like ink settling) → emerging (story appears) → revealing (today's sentence resolves from blur) → resting (copy appears) → ready (actions appear)
+  type RevelationPhase = 'idle' | 'dissolving' | 'emerging' | 'revealing' | 'resting' | 'ready';
+  const [revelationPhase, setRevelationPhase] = useState<RevelationPhase>('idle');
 
   // Insight state
   const [currentInsight, setCurrentInsight] = useState<InsightQuestion | null>(null);
@@ -272,7 +274,9 @@ export default function UnifiedReflectLoopScreen() {
     triggerReflectionFlow();
   };
 
-  // --- "See What This Added →" — transition from Reflection to Revelation ---
+  // --- "See What This Added →" — The Revelation Moment ---
+  // This is NOT navigation. This is one continuous emotional transition.
+  // The Reflection becomes the Story. Like ink settling into paper.
   const handleSeeWhatThisAdded = () => {
     const reflectionText = reflectionParagraphs.join('\n\n');
     completeReflection(reflectionText);
@@ -281,12 +285,57 @@ export default function UnifiedReflectLoopScreen() {
       emotionalState: selectedState || undefined,
     });
 
-    // Seamless dissolve from Reflection into Revelation
-    setShowReflection(false);
+    if (prefersReducedMotion) {
+      // Reduced motion: immediate but still respectful
+      setShowReflection(false);
+      setRevelationPhase('dissolving');
+      setTimeout(() => {
+        setStage('revelation');
+        setRevelationPhase('revealing');
+        setTimeout(() => setRevelationPhase('resting'), 400);
+        setTimeout(() => setRevelationPhase('ready'), 1200);
+      }, 200);
+      return;
+    }
+
+    // Full emotional sequence:
+    // +0ms: Pause. The Reflection holds. Silence.
+    // +600ms: Reflection begins dissolving (ink settling into paper)
+    // +1000ms: Revelation stage mounts, Story begins emerging
+    // +2200ms: Today's sentence begins resolving from blur to clarity
+    // +3100ms: Sentence is clear. The memory has come into focus.
+    // +3600ms: "Another page has found its place." appears
+    // +4100ms: Supporting copy appears
+    // +4600ms: Progress cue appears
+    // +6100ms: Actions appear (3 seconds after sentence resolved)
+
+    // Phase 1: Pause (600ms of silence)
+    setTimeout(() => {
+      // Phase 2: Dissolve — Reflection fades like ink settling
+      setRevelationPhase('dissolving');
+      setShowReflection(false); // triggers the slow 1000ms fade
+    }, 600);
+
+    // Phase 3: Emerge — Story Preview appears in the same space
     setTimeout(() => {
       setStage('revelation');
-      requestAnimationFrame(() => setShowRevelation(true));
-    }, getFadeDuration(500));
+      setRevelationPhase('emerging');
+    }, 1000);
+
+    // Phase 4: Reveal — Today's sentence resolves from blur (900ms transition)
+    setTimeout(() => {
+      setRevelationPhase('revealing');
+    }, 2200);
+
+    // Phase 5: Rest — Copy appears, the user sits with the moment
+    setTimeout(() => {
+      setRevelationPhase('resting');
+    }, 3600);
+
+    // Phase 6: Ready — Actions finally appear
+    setTimeout(() => {
+      setRevelationPhase('ready');
+    }, 6100);
   };
 
   // --- Navigation helpers ---
@@ -583,11 +632,15 @@ export default function UnifiedReflectLoopScreen() {
           STAGE: Reflection
           3 paragraphs: Mirror → Observation → Carry Forward
           CTA: "See What This Added →"
+          The Reflection dissolves like ink settling into paper
+          when the Revelation sequence begins.
           ============================================================ */}
       <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-start z-30 overflow-y-auto no-scrollbar
         transition-all ease-out
-        ${stage === 'reflection'
+        ${stage === 'reflection' && revelationPhase === 'idle'
           ? `opacity-100 blur-0 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[500ms]'} pointer-events-auto`
+          : stage === 'reflection' && revelationPhase === 'dissolving'
+          ? 'opacity-0 blur-[2px] translate-y-0 duration-[1000ms] pointer-events-none'
           : 'opacity-0 pointer-events-none'
         }
       `}
@@ -618,7 +671,7 @@ export default function UnifiedReflectLoopScreen() {
           <div
             className={`w-full flex justify-center mt-20 sm:mt-24 pb-20
               transition-all ease-out
-              ${showReflection && stage === 'reflection'
+              ${showReflection && stage === 'reflection' && revelationPhase === 'idle'
                 ? `opacity-100 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[600ms]'}`
                 : 'opacity-0 translate-y-2 duration-0'
               }
@@ -632,7 +685,7 @@ export default function UnifiedReflectLoopScreen() {
             <button
               type="button"
               onClick={handleSeeWhatThisAdded}
-              disabled={stage !== 'reflection'}
+              disabled={stage !== 'reflection' || revelationPhase !== 'idle'}
               className="group flex flex-col items-center focus:outline-none transition-all duration-300 active:scale-[0.98] active:opacity-60"
             >
               <span className="font-sans text-[var(--color-text-ink)] text-[10px] sm:text-xs tracking-[0.2em] uppercase border-b border-transparent group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
@@ -645,15 +698,25 @@ export default function UnifiedReflectLoopScreen() {
 
       {/* ============================================================
           STAGE: Revelation
-          The emotional payoff. The quiet moment where today's Echo
-          finds its place inside the unfolding story.
-          Uses the exact visual language from the Story page.
+          The quiet moment where today's Echo finds its place
+          inside the unfolding story.
+
+          This is NOT a screen change. The Reflection dissolves
+          like ink settling into paper, and the Story emerges
+          in the same space. Today's sentence resolves from blur
+          to clarity — like a memory coming into focus.
+
+          Phase timing:
+          emerging  → Story structure appears (blurred)
+          revealing → Today's sentence resolves (900ms blur→clear)
+          resting   → Copy appears (the user sits with the moment)
+          ready     → Actions appear (3s after sentence resolved)
           ============================================================ */}
       {stage === 'revelation' && (
         <div
           className={`absolute inset-0 w-full h-full flex flex-col items-center pt-[14vh] pb-[20vh] px-8 sm:px-12 z-40 overflow-y-auto no-scrollbar
             transition-opacity ease-out
-            ${showRevelation ? 'opacity-100 duration-[1200ms]' : 'opacity-0 duration-[400ms]'}
+            ${revelationPhase !== 'idle' ? 'opacity-100 duration-[1200ms]' : 'opacity-0 duration-[400ms]'}
           `}
           style={{ WebkitOverflowScrolling: 'auto', overscrollBehavior: 'none' }}
         >
@@ -664,32 +727,26 @@ export default function UnifiedReflectLoopScreen() {
           ></div>
 
           {/* Story Header — matching Story page exactly */}
-          <header className="w-full max-w-[540px] mb-24 sm:mb-32 flex flex-col items-center text-center">
-            <h2
-              className="font-serif text-3xl sm:text-4xl text-[var(--color-text-ink)]/90 mb-6 tracking-wide opacity-0 animate-[fadeInUp_1.8s_ease-out_forwards]"
-              style={{ animationDelay: '200ms' }}
-            >
+          <header className={`w-full max-w-[540px] mb-24 sm:mb-32 flex flex-col items-center text-center
+            transition-opacity ease-out duration-[1800ms]
+            ${revelationPhase !== 'idle' && revelationPhase !== 'dissolving' ? 'opacity-100' : 'opacity-0'}
+          `}>
+            <h2 className="font-serif text-3xl sm:text-4xl text-[var(--color-text-ink)]/90 mb-6 tracking-wide">
               Your Story
             </h2>
-            <p
-              className="font-serif italic text-[14px] sm:text-[15px] tracking-wide text-[var(--color-text-graphite)]/60 opacity-0 animate-[fadeInUp_1.8s_ease-out_forwards]"
-              style={{ animationDelay: '400ms' }}
-            >
+            <p className="font-serif italic text-[14px] sm:text-[15px] tracking-wide text-[var(--color-text-graphite)]/60">
               The accumulation of your presence
             </p>
           </header>
 
           {/* Chapter Content — matching Story page visual system */}
-          <article
-            className="w-full max-w-[540px] flex flex-col gap-12 sm:gap-16 opacity-0 animate-[fadeIn_2s_ease-out_forwards]"
-            style={{ animationDelay: '800ms' }}
-          >
+          <article className={`w-full max-w-[540px] flex flex-col gap-12 sm:gap-16
+            transition-opacity ease-out duration-[1800ms]
+            ${revelationPhase !== 'idle' && revelationPhase !== 'dissolving' ? 'opacity-100' : 'opacity-0'}
+          `}>
             {/* Chapter Header */}
             <header className="mb-4">
-              <h3
-                className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] mb-6 text-center md:text-left opacity-0 animate-[fadeInUp_1.8s_ease-out_forwards]"
-                style={{ animationDelay: '600ms' }}
-              >
+              <h3 className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] mb-6 text-center md:text-left">
                 {currentChapter.title}
               </h3>
               <div className="w-12 h-[1px] bg-[var(--color-text-graphite)]/20 mx-auto md:mx-0 mt-8"></div>
@@ -699,30 +756,29 @@ export default function UnifiedReflectLoopScreen() {
             <div className="flex flex-col gap-12 md:gap-16">
               {currentChapter.paragraphs.map((paragraphText, pIdx) => {
                 const sentences = splitIntoSentences(paragraphText);
-                // Check which sentences in this paragraph are revealed
                 const paragraphSentenceRefs = storyProgress.revealedSentences.filter(
                   s => s.chapterIndex === storyProgress.currentChapterIndex && s.paragraphIndex === pIdx
                 );
                 const revealedCount = paragraphSentenceRefs.length;
                 const hasAnyRevealed = revealedCount > 0;
 
-                // If no sentences are revealed in this paragraph, show fully blurred
+                // Fully blurred paragraph — no sentences revealed yet
                 if (!hasAnyRevealed) {
                   return (
                     <p
                       key={pIdx}
-                      className="font-serif text-[19px] sm:text-[21px] leading-[2.4] md:leading-[2.6] text-left text-[var(--color-text-graphite)]/30 blur-[6px] select-none transition-all duration-[2000ms]"
+                      className="font-serif text-[19px] sm:text-[21px] leading-[2.4] md:leading-[2.6] text-left text-[var(--color-text-graphite)]/30 blur-[6px] select-none"
                     >
                       {paragraphText}
                     </p>
                   );
                 }
 
-                // Render sentence by sentence with progressive reveal
+                // Sentence-by-sentence rendering
                 return (
                   <p
                     key={pIdx}
-                    className="font-serif text-[19px] sm:text-[21px] leading-[2.4] md:leading-[2.6] text-left transition-all duration-[2000ms]"
+                    className="font-serif text-[19px] sm:text-[21px] leading-[2.4] md:leading-[2.6] text-left"
                   >
                     {sentences.map((sentence, sIdx) => {
                       const isRevealed = sIdx < revealedCount;
@@ -732,15 +788,32 @@ export default function UnifiedReflectLoopScreen() {
                         storyProgress.newestSentence.sentenceIndex === sIdx;
                       const isNextToReveal = sIdx === revealedCount;
 
-                      if (isRevealed) {
+                      if (isRevealed && isNewest) {
+                        // TODAY'S SENTENCE — the goosebumps moment.
+                        // Starts blurred. Resolves to clarity over 900ms.
+                        // Like a memory coming into focus.
+                        const hasResolved = revelationPhase === 'revealing' ||
+                          revelationPhase === 'resting' ||
+                          revelationPhase === 'ready';
                         return (
                           <span
                             key={sIdx}
-                            className={`transition-all duration-[2000ms] ${
-                              isNewest
-                                ? 'text-[var(--color-text-ink)] blur-0'
-                                : 'text-[var(--color-text-ink)]/85 blur-0'
-                            }`}
+                            className={`transition-all ease-out
+                              ${hasResolved
+                                ? 'text-[var(--color-text-ink)] blur-0 duration-[900ms]'
+                                : 'text-[var(--color-text-graphite)]/40 blur-[6px] duration-0'
+                              }
+                            `}
+                          >
+                            {sentence}{' '}
+                          </span>
+                        );
+                      } else if (isRevealed) {
+                        // Previously revealed sentences — already clear
+                        return (
+                          <span
+                            key={sIdx}
+                            className="text-[var(--color-text-ink)]/85 blur-0"
                           >
                             {sentence}{' '}
                           </span>
@@ -749,7 +822,7 @@ export default function UnifiedReflectLoopScreen() {
                         return (
                           <span
                             key={sIdx}
-                            className="text-[var(--color-text-graphite)]/50 blur-[3px] select-none transition-all duration-[2000ms]"
+                            className="text-[var(--color-text-graphite)]/50 blur-[3px] select-none"
                           >
                             {sentence}{' '}
                           </span>
@@ -758,7 +831,7 @@ export default function UnifiedReflectLoopScreen() {
                         return (
                           <span
                             key={sIdx}
-                            className="text-[var(--color-text-graphite)]/30 blur-[6px] select-none transition-all duration-[2000ms]"
+                            className="text-[var(--color-text-graphite)]/30 blur-[6px] select-none"
                           >
                             {sentence}{' '}
                           </span>
@@ -771,33 +844,37 @@ export default function UnifiedReflectLoopScreen() {
             </div>
           </article>
 
-          {/* Revelation Copy */}
-          <div
-            className="w-full max-w-[540px] flex flex-col items-center text-center mt-32 sm:mt-40 opacity-0 animate-[fadeIn_2.5s_ease-out_forwards]"
-            style={{ animationDelay: '1600ms' }}
-          >
+          {/* Revelation Copy — appears after today's sentence has resolved */}
+          <div className={`w-full max-w-[540px] flex flex-col items-center text-center mt-32 sm:mt-40
+            transition-opacity ease-out duration-[1500ms]
+            ${revelationPhase === 'resting' || revelationPhase === 'ready' ? 'opacity-100' : 'opacity-0'}
+          `}>
             <h3 className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] mb-6 leading-snug">
               Another page has found its place.
             </h3>
-            <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-4 opacity-70">
+            <p className={`font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-4
+              transition-opacity ease-out duration-[1200ms] delay-[500ms]
+              ${revelationPhase === 'resting' || revelationPhase === 'ready' ? 'opacity-70' : 'opacity-0'}
+            `}>
               Every Echo becomes part of something only you can tell.
             </p>
-            <p
-              className="font-serif italic text-[13px] text-[var(--color-text-graphite)]/50 mb-16 opacity-0 animate-[fadeIn_2s_ease-out_forwards]"
-              style={{ animationDelay: '2200ms' }}
-            >
+            <p className={`font-serif italic text-[13px] text-[var(--color-text-graphite)]/50 mb-16
+              transition-opacity ease-out duration-[1200ms] delay-[1000ms]
+              ${revelationPhase === 'resting' || revelationPhase === 'ready' ? 'opacity-100' : 'opacity-0'}
+            `}>
               Your next Echo will reveal more of this chapter.
             </p>
           </div>
 
-          {/* Revelation Actions */}
-          <div
-            className="w-full max-w-[540px] flex flex-col items-center gap-10 mt-8 pb-20 opacity-0 animate-[fadeIn_2s_ease-out_forwards]"
-            style={{ animationDelay: '2600ms' }}
-          >
+          {/* Revelation Actions — appear last, after the user has sat with the moment */}
+          <div className={`w-full max-w-[540px] flex flex-col items-center gap-10 mt-8 pb-20
+            transition-opacity ease-out duration-[1200ms]
+            ${revelationPhase === 'ready' ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+          `}>
             <button
               type="button"
               onClick={handleReturnToDashboard}
+              disabled={revelationPhase !== 'ready'}
               className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
             >
               <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
@@ -808,6 +885,7 @@ export default function UnifiedReflectLoopScreen() {
             <button
               type="button"
               onClick={handleContinueToStory}
+              disabled={revelationPhase !== 'ready'}
               className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
             >
               <span className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-[11px] tracking-[0.2em] uppercase opacity-50 group-hover:opacity-80 transition-opacity duration-[600ms]">
