@@ -16,6 +16,7 @@ export interface AnalyticsMetadata {
   requestTimedOut?: boolean;
   outputTruncated?: boolean;
   outputRegenerated?: boolean;
+  insightCategory?: string;
 }
 
 const generateSessionId = () => {

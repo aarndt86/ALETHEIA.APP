@@ -19,9 +19,13 @@ interface UserStats {
   firstReflectionCompletedAt: string | null;
   lastEchoSavedAt: string | null;
   lastReflectionCompletedAt: string | null;
-  // Backward-compatible alias for Story/Glimpse progression
-  // TODO: Migrate Story progression to derive from completedReflectionCount
+  // Backward-compatible alias for Story progression
   totalEchoCount: number;
+  // Insight tracking
+  completedInsightCount: number;
+  lastInsightCompletedAt: string | null;
+  lastInsightShownAtEcho: number;
+  insightIntroSeen: boolean;
 }
 
 interface AppContextType {
@@ -44,7 +48,7 @@ interface AppContextType {
   // User stats (persisted)
   userStats: UserStats;
 
-  // Backward-compat: totalEchoCount for Story/Glimpse progression
+  // Backward-compat: totalEchoCount for Story progression
   totalEchoCount: number;
 
   // Lifecycle actions
@@ -52,14 +56,17 @@ interface AppContextType {
   completeReflection: (reflection: string) => void;
   markReflectionFailed: () => void;
 
+  // Insight actions
+  markInsightCompleted: () => void;
+  markInsightSkipped: () => void;
+  markInsightIntroSeen: () => void;
+
   // Session flags
   showPreservedMicrocopy: boolean;
   clearPreservedMicrocopy: () => void;
 
-  // Milestone detection
-  isMilestoneEcho: boolean;
-
   // Derived
+  shouldShowInsight: boolean;
   hasCompletedFirstReflection: boolean;
   isFirstEcho: boolean;
 }
@@ -67,9 +74,6 @@ interface AppContextType {
 // --- Constants ---
 
 const STORAGE_KEY = 'kairo_user_stats';
-const SESSION_PRESERVED_KEY = 'kairo_show_preserved';
-
-const MILESTONE_ECHOES = [3, 7, 14, 30];
 
 const DEFAULT_STATS: UserStats = {
   savedEchoCount: 0,
@@ -79,6 +83,10 @@ const DEFAULT_STATS: UserStats = {
   lastEchoSavedAt: null,
   lastReflectionCompletedAt: null,
   totalEchoCount: 1, // Existing default for Story progression testing
+  completedInsightCount: 0,
+  lastInsightCompletedAt: null,
+  lastInsightShownAtEcho: 0,
+  insightIntroSeen: false,
 };
 
 // --- Helpers ---
@@ -193,6 +201,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } : null);
   }, []);
 
+  // --- Insight: Completed ---
+  const markInsightCompleted = useCallback(() => {
+    const now = new Date().toISOString();
+    setUserStats(prev => ({
+      ...prev,
+      completedInsightCount: prev.completedInsightCount + 1,
+      lastInsightCompletedAt: now,
+      lastInsightShownAtEcho: prev.completedReflectionCount,
+    }));
+  }, []);
+
+  // --- Insight: Skipped ---
+  const markInsightSkipped = useCallback(() => {
+    setUserStats(prev => ({
+      ...prev,
+      lastInsightShownAtEcho: prev.completedReflectionCount,
+    }));
+  }, []);
+
+  // --- Insight: Intro Seen ---
+  const markInsightIntroSeen = useCallback(() => {
+    setUserStats(prev => ({
+      ...prev,
+      insightIntroSeen: true,
+    }));
+  }, []);
+
   const clearPreservedMicrocopy = useCallback(() => {
     setShowPreservedMicrocopy(false);
   }, []);
@@ -200,7 +235,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Derived state
   const hasCompletedFirstReflection = userStats.completedReflectionCount > 0;
   const isFirstEcho = userStats.savedEchoCount === 0;
-  const isMilestoneEcho = MILESTONE_ECHOES.includes(userStats.completedReflectionCount + 1);
+
+  // Insight eligibility: after Echo 7, with natural randomized interval (3-5 echoes)
+  const echosSinceLastInsight = userStats.completedReflectionCount - userStats.lastInsightShownAtEcho;
+  // Use a simple hash of the echo count to create a natural-feeling interval between 3 and 5
+  const insightInterval = 3 + (userStats.completedReflectionCount % 3); // cycles: 3, 4, 5, 3, 4, 5...
+  const shouldShowInsight = userStats.completedReflectionCount >= 7 && echosSinceLastInsight >= insightInterval;
 
   return (
     <AppContext.Provider value={{
@@ -217,9 +257,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveEcho,
       completeReflection,
       markReflectionFailed,
+      markInsightCompleted,
+      markInsightSkipped,
+      markInsightIntroSeen,
       showPreservedMicrocopy,
       clearPreservedMicrocopy,
-      isMilestoneEcho,
+      shouldShowInsight,
       hasCompletedFirstReflection,
       isFirstEcho,
     }}>
