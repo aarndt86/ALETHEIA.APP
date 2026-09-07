@@ -15,13 +15,13 @@ export default function BottomNav() {
     setOptimisticPath(pathname);
   }, [pathname]);
 
-  // Bottom Navigation is strictly prohibited outside of Kairo Mode.
+  // Bottom Navigation is strictly prohibited outside of Altheara Mode.
   // The sacred loop (Home -> Check-In -> Echo -> Reflection -> Reveal) must never display UI chrome.
-  const isKairoMode = ['/kairo', '/timeline', '/story', '/profile'].includes(pathname);
-  if (!isKairoMode) return null;
+  const isAlthearaMode = ['/altheara', '/timeline', '/story', '/profile'].includes(pathname);
+  if (!isAlthearaMode) return null;
 
   const navItems = [
-    { name: "Dashboard", href: "/kairo" },
+    { name: "Dashboard", href: "/altheara" },
     { name: "Archive", href: "/timeline" },
     { name: "Book", href: "/story" }
   ];

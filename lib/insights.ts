@@ -46,7 +46,7 @@ export function getNextInsight(completedInsightIds: string[]): InsightQuestion |
   return remainingQuestions[0];
 }
 
-const STORAGE_KEY = 'kairo_insights';
+const STORAGE_KEY = 'altheara_insights';
 
 export function loadInsightAnswers(): InsightAnswer[] {
   if (typeof window === 'undefined') return [];

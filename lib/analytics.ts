@@ -39,7 +39,7 @@ export const trackEvent = (eventName: string, metadata?: Partial<AnalyticsMetada
   };
 
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
-    console.log(`[Kairo Analytics] ${eventName}`, JSON.stringify(eventPayload, null, 2));
+    console.log(`[Altheara Analytics] ${eventName}`, JSON.stringify(eventPayload, null, 2));
   }
   
   // Future: Plug in real analytics provider here

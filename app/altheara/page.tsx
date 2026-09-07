@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function KairoDashboard() {
+export default function AlthearaDashboard() {
   const router = useRouter();
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -28,7 +28,7 @@ export default function KairoDashboard() {
         {/* Top Header Layout */}
         <header className="relative w-full max-w-sm flex justify-center items-center mb-24">
           <h1 className="font-serif text-[11px] sm:text-xs tracking-[0.4em] uppercase text-[var(--color-text-graphite)]/60 text-center">
-            Kairo
+            Altheara
           </h1>
           
           <button 

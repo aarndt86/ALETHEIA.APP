@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function HomeGatewayScreen() {
   const router = useRouter();
-  const [transitionState, setTransitionState] = useState<'idle' | 'reflect' | 'kairo'>('idle');
+  const [transitionState, setTransitionState] = useState<'idle' | 'reflect' | 'altheara'>('idle');
 
   const handleReflect = () => {
     setTransitionState('reflect');
@@ -15,10 +15,10 @@ export default function HomeGatewayScreen() {
     }, 600);
   };
 
-  const handleKairo = () => {
-    setTransitionState('kairo');
+  const handleAltheara = () => {
+    setTransitionState('altheara');
     setTimeout(() => {
-      router.push('/kairo');
+      router.push('/altheara');
     }, 600);
   };
 
@@ -67,7 +67,7 @@ export default function HomeGatewayScreen() {
             className="font-serif text-[11px] sm:text-xs tracking-[0.4em] uppercase text-[var(--color-text-ink)] opacity-70"
             style={{ animation: 'fadeItem 800ms cubic-bezier(0.33, 1, 0.68, 1) 0ms both' }}
           >
-            Kairo
+            Altheara
           </span>
         </div>
 
@@ -93,13 +93,13 @@ export default function HomeGatewayScreen() {
         <div className="w-full flex justify-center">
           <button 
             type="button"
-            onClick={handleKairo}
+            onClick={handleAltheara}
             className="group flex flex-col items-center focus:outline-none transition-transform duration-500 active:scale-[0.98] active:opacity-60"
             style={{ animation: 'fadeItem 800ms cubic-bezier(0.33, 1, 0.68, 1) 400ms both' }}
-            aria-label="Enter Kairo Mode"
+            aria-label="Enter Altheara Mode"
           >
             <span className="font-sans text-[10px] tracking-[0.35em] uppercase text-[var(--color-text-graphite)] opacity-80 group-hover:opacity-100 transition-colors duration-700">
-              Enter Kairo
+              Enter Altheara
             </span>
           </button>
         </div>

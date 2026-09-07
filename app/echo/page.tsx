@@ -968,7 +968,7 @@ export default function UnifiedReflectLoopScreen() {
               Most of your story unfolds naturally through your Echoes.
             </p>
             <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-6 max-w-[380px]">
-              From time to time, Kairo will offer an Insight&mdash;a single thoughtful question that helps preserve the parts of your life everyday moments may never naturally reveal.
+              From time to time, Altheara will offer an Insight&mdash;a single thoughtful question that helps preserve the parts of your life everyday moments may never naturally reveal.
             </p>
             <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 max-w-[380px]">
               Over time, these Insights help your story become richer, more complete, and unmistakably yours.
@@ -1090,7 +1090,7 @@ export default function UnifiedReflectLoopScreen() {
               Your words have been kept.
             </h2>
             <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 opacity-70">
-              Kairo could not complete the Reflection just yet. You can return to it when it is ready.
+              Altheara could not complete the Reflection just yet. You can return to it when it is ready.
             </p>
             <div className="flex flex-col items-center gap-10">
               <button

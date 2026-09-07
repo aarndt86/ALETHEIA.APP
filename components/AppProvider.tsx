@@ -79,7 +79,7 @@ interface AppContextType {
 
 // --- Constants ---
 
-const STORAGE_KEY = 'kairo_user_stats';
+const STORAGE_KEY = 'altheara_user_stats';
 
 const DEFAULT_STATS: UserStats = {
   savedEchoCount: 0,
