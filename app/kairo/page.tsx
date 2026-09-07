@@ -65,7 +65,7 @@ export default function KairoDashboard() {
             className="group flex flex-col items-center text-center focus:outline-none transition-all duration-[600ms] opacity-[0.95] hover:opacity-100 active:scale-[1.02] active:opacity-100"
           >
             <span className="font-serif tracking-wide text-3xl sm:text-4xl text-[var(--color-text-ink)]/85 transition-colors duration-500">
-              Timeline
+              Archive
             </span>
             <span className="font-serif italic text-sm sm:text-[15px] tracking-wide text-[var(--color-text-graphite)]/75 group-hover:text-[var(--color-text-graphite)]/90 transition-opacity duration-500 mt-4 leading-relaxed max-w-[220px]">
               Review your past states

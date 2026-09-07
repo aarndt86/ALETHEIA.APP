@@ -294,7 +294,11 @@ export default function UnifiedReflectLoopScreen() {
     });
 
     // Check at call time whether we'll have new text to animate
-    const willAnimate = revealDiff.hasNewReveal && lastAnimatedRevealEchoCount < totalEchoCount;
+    // Note: completeReflection() just incremented totalEchoCount in state,
+    // but the state update hasn't flushed yet. Use +1 to reflect post-increment.
+    const postEchoCount = totalEchoCount + 1;
+    const postRevealDiff = getNewlyRevealedSentences(postEchoCount);
+    const willAnimate = postRevealDiff.hasNewReveal && lastAnimatedRevealEchoCount < postEchoCount;
 
     if (prefersReducedMotion) {
       setShowReflection(false);
@@ -511,8 +515,8 @@ export default function UnifiedReflectLoopScreen() {
       {/* ============================================================
           STAGE: Check-In (Emotion Assembly)
           ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-20 pointer-events-none transition-opacity duration-700 ease-in
-        ${stage === 'checkin' ? 'opacity-100' : 'opacity-0'}
+      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-20 transition-opacity duration-700 ease-in
+        ${stage === 'checkin' ? 'opacity-100 pointer-events-auto visible' : 'opacity-0 pointer-events-none invisible'}
       `}>
         <header className={`mb-20 text-center transition-all duration-700 ease-out
           ${selectedState ? 'opacity-0 blur-[10px] -translate-y-4' : 'opacity-100'}
@@ -927,7 +931,7 @@ export default function UnifiedReflectLoopScreen() {
           `}>
             <button
               type="button"
-              onClick={handleReturnToDashboard}
+              onClick={handleRevelationComplete}
               disabled={revelationPhase !== 'ready'}
               className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
             >
