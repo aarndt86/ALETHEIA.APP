@@ -539,17 +539,26 @@ export default function UnifiedReflectLoopScreen() {
 
       {/* ============================================================
           STAGE: Writing
+          The Invitation and the writing surface are ONE page.
+          Tapping anywhere focuses the textarea.
+          The Invitation fades when the first character is typed.
           ============================================================ */}
-      <div className={`absolute top-0 w-full max-w-[520px] flex flex-col pt-[24vh] px-6 sm:px-8 transition-all ease-in-out z-10
-        ${stage === 'checkin' || stage === 'firstEchoIntro' ? 'opacity-0 translate-y-8 duration-0 pointer-events-none' : ''}
-        ${stage === 'writing' ? 'opacity-100 scale-100 blur-0 translate-y-0 duration-[1000ms] pointer-events-auto' : ''}
-        ${stage === 'morphing' ? `opacity-0 scale-100 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[400ms]'} pointer-events-none` : ''}
-        ${stage !== 'checkin' && stage !== 'firstEchoIntro' && stage !== 'writing' && stage !== 'morphing' ? 'opacity-0 pointer-events-none duration-0' : ''}
-      `}>
-        <div className={`mb-24 sm:mb-32 transition-all pointer-events-none
-          ${stage === 'writing' && content.length === 0 ? 'opacity-70 translate-y-0 blur-0 duration-[400ms]' : ''}
-          ${stage === 'writing' && content.length > 0 ? 'opacity-0 -translate-y-2 blur-sm duration-[400ms] absolute' : ''}
+      <div
+        className={`absolute top-0 w-full max-w-[520px] flex flex-col pt-[24vh] px-6 sm:px-8 transition-all ease-in-out z-10
+          ${stage === 'checkin' || stage === 'firstEchoIntro' ? 'opacity-0 translate-y-8 duration-0 pointer-events-none' : ''}
+          ${stage === 'writing' ? 'opacity-100 scale-100 blur-0 translate-y-0 duration-[1000ms] pointer-events-auto' : ''}
+          ${stage === 'morphing' ? `opacity-0 scale-100 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[400ms]'} pointer-events-none` : ''}
+          ${stage !== 'checkin' && stage !== 'firstEchoIntro' && stage !== 'writing' && stage !== 'morphing' ? 'opacity-0 pointer-events-none duration-0' : ''}
+        `}
+        onClick={() => { if (stage === 'writing') textareaRef.current?.focus(); }}
+        role="presentation"
+      >
+        {/* Invitation — fades on first character, returns if emptied */}
+        <div className={`transition-all ease-out pointer-events-none
+          ${stage === 'writing' && content.length === 0 ? 'opacity-70 translate-y-0 duration-[600ms]' : ''}
+          ${stage === 'writing' && content.length > 0 ? 'opacity-0 -translate-y-1 duration-[600ms]' : ''}
           ${stage !== 'writing' ? 'opacity-0 duration-0' : ''}
+          ${content.length > 0 ? 'absolute' : 'relative mb-12'}
         `}>
           <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-50 block mb-8">
             Today&apos;s Invitation
@@ -562,14 +571,14 @@ export default function UnifiedReflectLoopScreen() {
           </p>
         </div>
 
+        {/* Writing surface — borderless, chromeless, the page itself */}
         <textarea
           ref={textareaRef}
           value={content}
           onChange={handleChange}
           readOnly={stage !== 'writing'}
           spellCheck="false"
-          placeholder={placeholderText}
-          className={`w-full bg-transparent resize-none outline-none font-serif text-[21px] sm:text-2xl lg:text-[26px] text-[var(--color-text-ink)] leading-[1.8] sm:leading-[1.9] min-h-[50vh] focus:outline-none transition-all duration-[180ms] ease-out placeholder:text-[var(--color-text-graphite)]/30 placeholder:italic
+          className={`w-full bg-transparent resize-none outline-none font-serif text-[21px] sm:text-2xl lg:text-[26px] text-[var(--color-text-ink)] leading-[1.8] sm:leading-[1.9] min-h-[50vh] focus:outline-none transition-all duration-[180ms] ease-out
             ${isTyping ? 'opacity-95 translate-y-[2px]' : 'opacity-100 translate-y-0'}
           `}
           style={{
@@ -577,14 +586,6 @@ export default function UnifiedReflectLoopScreen() {
             textShadow: isTyping ? '0 1px 2px rgba(0,0,0,0.02)' : '0 1px 0 rgba(0,0,0,0)'
           }}
         />
-
-        {showFirstEchoUI && stage === 'writing' && (
-          <p className={`absolute bottom-28 left-6 right-6 text-center font-sans text-[11px] text-[var(--color-text-graphite)] transition-opacity duration-500
-            ${content.length > 0 ? 'opacity-0' : 'opacity-40'}
-          `}>
-            There is no right way to begin.
-          </p>
-        )}
       </div>
 
       {/* Save Error Message */}
