@@ -692,7 +692,7 @@ export default function UnifiedReflectLoopScreen() {
       `}
       style={{ WebkitOverflowScrolling: 'auto', overscrollBehavior: 'none' }}
       >
-        <div className="w-full max-w-lg px-6 sm:px-8 pt-[26vh] pb-[30vh]">
+        <div className="w-full max-w-lg px-6 sm:px-8 pt-[28vh] pb-[20vh] flex flex-col items-center">
           {/* Reflection ritual header */}
           <div className={`text-center mb-16 transition-opacity ease-out
             ${showReflection
@@ -707,29 +707,26 @@ export default function UnifiedReflectLoopScreen() {
               What your words seem to hold.
             </p>
           </div>
-          {reflectionParagraphs.map((paragraph, idx) => (
-            <p
-              key={idx}
-              className={`font-serif text-lg sm:text-xl lg:text-2xl text-[var(--color-text-ink)] leading-[1.8] sm:leading-[2] mb-8 last:mb-0
-                transition-opacity ease-out
-                ${showReflection
-                  ? `opacity-100 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[500ms]'}`
-                  : 'opacity-0 duration-0'
-                }
-              `}
-              style={{
-                transitionDelay: showReflection && !prefersReducedMotion
-                  ? `${idx * 90}ms`
-                  : '0ms'
-              }}
-            >
-              {paragraph}
-            </p>
-          ))}
+
+          {/* Single concise reflection — 15–30 words */}
+          <p
+            className={`font-serif text-lg sm:text-xl lg:text-2xl text-[var(--color-text-ink)] leading-[1.8] sm:leading-[2] text-center max-w-md
+              transition-opacity ease-out
+              ${showReflection
+                ? `opacity-100 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[600ms]'}`
+                : 'opacity-0 duration-0'
+              }
+            `}
+            style={{
+              transitionDelay: showReflection && !prefersReducedMotion ? '200ms' : '0ms'
+            }}
+          >
+            {reflectionParagraphs.join(' ')}
+          </p>
 
           {/* "See What This Added →" CTA */}
           <div
-            className={`w-full flex justify-center mt-20 sm:mt-24 pb-20
+            className={`mt-20 sm:mt-24
               transition-all ease-out
               ${showReflection && stage === 'reflection' && revelationPhase === 'idle'
                 ? `opacity-100 translate-y-0 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[600ms]'}`
@@ -737,9 +734,7 @@ export default function UnifiedReflectLoopScreen() {
               }
             `}
             style={{
-              transitionDelay: showReflection && !prefersReducedMotion
-                ? `${reflectionParagraphs.length * 90 + 400}ms`
-                : '0ms'
+              transitionDelay: showReflection && !prefersReducedMotion ? '600ms' : '0ms'
             }}
           >
             <button
