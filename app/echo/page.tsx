@@ -133,7 +133,8 @@ export default function UnifiedReflectLoopScreen() {
     setContent('');
     setCurrentDraft('');
 
-    const initialStage: Stage = isFirstEcho ? 'firstEchoIntro' : 'writing';
+    // Show orientation every time for QA. Production will restrict to first-use only.
+    const initialStage: Stage = 'firstEchoIntro';
     setStage(initialStage);
 
     if (invitationRef.current === null) {
@@ -508,19 +509,28 @@ export default function UnifiedReflectLoopScreen() {
       ></div>
 
       {/* ============================================================
-          STAGE: First Echo Introduction
+          STAGE: Echo Orientation
+          Shows every time for QA. Production: first-use only.
           ============================================================ */}
       {stage === 'firstEchoIntro' && (
         <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-30">
           <div className="flex flex-col items-center text-center max-w-md">
-            <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-60 mb-10">
-              Your first Echo
+            <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-60 mb-12">
+              A note before you begin
             </span>
-            <h1 className="font-serif text-2xl sm:text-3xl text-[var(--color-text-ink)] mb-8 leading-snug">
-              You do not need the perfect words.
+            <h1 className="font-serif text-2xl sm:text-3xl text-[var(--color-text-ink)] mb-10 leading-snug">
+              There is no right way<br />to leave an Echo.
             </h1>
+            <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-6 max-w-[320px]">
+              A thought. A feeling. Something that happened.<br />
+              Something you don&apos;t want to forget.
+            </p>
+            <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-6 max-w-[320px]">
+              Today&apos;s Invitation is simply a place to begin.<br />
+              You never have to answer it.
+            </p>
             <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed mb-16 max-w-[320px]">
-              Begin with what is true right now. A sentence is enough. A page is enough. This is simply a place to meet yourself honestly.
+              Start there, or start anywhere.
             </p>
             <button
               type="button"
@@ -528,7 +538,7 @@ export default function UnifiedReflectLoopScreen() {
               className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
             >
               <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
-                Begin
+                Begin &rarr;
               </span>
             </button>
           </div>
