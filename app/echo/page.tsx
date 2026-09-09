@@ -133,7 +133,7 @@ export default function UnifiedReflectLoopScreen() {
     setContent('');
     setCurrentDraft('');
 
-    const initialStage: Stage = isFirstEcho ? 'firstEchoIntro' : 'invitation';
+    const initialStage: Stage = isFirstEcho ? 'firstEchoIntro' : 'writing';
     setStage(initialStage);
 
     if (invitationRef.current === null) {
@@ -165,7 +165,7 @@ export default function UnifiedReflectLoopScreen() {
 
   const handleFirstEchoBegin = () => {
     trackEvent('first_echo_started', { isFirstEcho: true });
-    setStage('invitation');
+    setStage('writing');
   };
 
   // --- Invitation handlers ---
@@ -535,39 +535,7 @@ export default function UnifiedReflectLoopScreen() {
         </div>
       )}
 
-      {/* ============================================================
-          STAGE: Invitation
-          ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-20 transition-all duration-700 ease-in
-        ${stage === 'invitation' ? 'opacity-100 pointer-events-auto visible' : 'opacity-0 pointer-events-none invisible'}
-      `}>
-        <div className="flex flex-col items-center text-center max-w-md">
-          <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-60 mb-12">
-            Today&apos;s Invitation
-          </span>
-          <p className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] leading-relaxed mb-16">
-            &ldquo;{invitation}&rdquo;
-          </p>
-          <button
-            type="button"
-            onClick={handleWriteWithInvitation}
-            className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60 mb-12"
-          >
-            <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
-              Write an Echo &rarr;
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={handleWriteOwn}
-            className="group focus:outline-none transition-all duration-500 active:opacity-60"
-          >
-            <span className="font-serif italic text-[13px] sm:text-sm text-[var(--color-text-graphite)]/60 group-hover:text-[var(--color-text-graphite)]/90 transition-colors duration-500">
-              or leave your own Echo
-            </span>
-          </button>
-        </div>
-      </div>
+
 
       {/* ============================================================
           STAGE: Writing
@@ -578,19 +546,20 @@ export default function UnifiedReflectLoopScreen() {
         ${stage === 'morphing' ? `opacity-0 scale-100 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[400ms]'} pointer-events-none` : ''}
         ${stage !== 'checkin' && stage !== 'firstEchoIntro' && stage !== 'writing' && stage !== 'morphing' ? 'opacity-0 pointer-events-none duration-0' : ''}
       `}>
-        <div className={`mb-24 sm:mb-32 transition-all duration-[800ms] pointer-events-none
-          ${stage === 'writing' && content.length === 0 ? 'opacity-70 translate-y-0 blur-0' : ''}
-          ${stage === 'writing' && content.length > 0 ? 'opacity-0 -translate-y-2 blur-sm absolute' : ''}
-          ${stage !== 'writing' ? 'opacity-0' : ''}
+        <div className={`mb-24 sm:mb-32 transition-all pointer-events-none
+          ${stage === 'writing' && content.length === 0 ? 'opacity-70 translate-y-0 blur-0 duration-[400ms]' : ''}
+          ${stage === 'writing' && content.length > 0 ? 'opacity-0 -translate-y-2 blur-sm duration-[400ms] absolute' : ''}
+          ${stage !== 'writing' ? 'opacity-0 duration-0' : ''}
         `}>
+          <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-50 block mb-8">
+            Today&apos;s Invitation
+          </span>
           <h2 className="font-serif text-[20px] sm:text-[22px] text-[var(--color-text-ink)] text-left italic font-light tracking-wide">
             {invitation}
           </h2>
-          {showFirstEchoUI && (
-            <p className="font-serif italic text-sm text-[var(--color-text-graphite)] opacity-50 mt-4">
-              {FIRST_INVITATION_SUPPORT}
-            </p>
-          )}
+          <p className="font-serif italic text-[13px] text-[var(--color-text-graphite)] opacity-40 mt-6">
+            or begin anywhere
+          </p>
         </div>
 
         <textarea
