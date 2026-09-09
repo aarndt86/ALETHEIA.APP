@@ -17,13 +17,13 @@ export default function BottomNav() {
 
   // Bottom Navigation is strictly prohibited outside of Altheara Mode.
   // The sacred loop (Home -> Check-In -> Echo -> Reflection -> Reveal) must never display UI chrome.
-  const isAlthearaMode = ['/altheara', '/timeline', '/story', '/profile'].includes(pathname);
+  const isAlthearaMode = ['/home', '/altheara', '/timeline', '/story', '/profile'].includes(pathname);
   if (!isAlthearaMode) return null;
 
   const navItems = [
-    { name: "Dashboard", href: "/altheara" },
+    { name: "Altheara", href: "/home" },
     { name: "Archive", href: "/timeline" },
-    { name: "Book", href: "/story" }
+    { name: "Story", href: "/story" }
   ];
 
   const handleNavClick = (e: React.MouseEvent, href: string) => {

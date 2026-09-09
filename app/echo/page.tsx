@@ -41,9 +41,10 @@ const STANDARD_INVITATIONS = [
 ];
 
 // --- Stage type ---
-// V1.2 Daily Loop: firstEchoIntro → checkin → writing → morphing → reflection → revelation → [insightIntro → insight → insightComplete] → returning
+// V1 Daily Loop: firstEchoIntro → invitation → writing → morphing → reflection → revelation → [insightIntro → insight → insightComplete] → returning
 type Stage =
   | 'firstEchoIntro'
+  | 'invitation'
   | 'checkin'
   | 'writing'
   | 'morphing'
@@ -101,6 +102,9 @@ export default function UnifiedReflectLoopScreen() {
   // Error state
   const [saveError, setSaveError] = useState(false);
 
+  // Optional feeling panel (replaces mandatory checkin)
+  const [showFeelingPanel, setShowFeelingPanel] = useState(false);
+
   // Custom Expression Layer Dynamics
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -129,7 +133,7 @@ export default function UnifiedReflectLoopScreen() {
     setContent('');
     setCurrentDraft('');
 
-    const initialStage: Stage = isFirstEcho ? 'firstEchoIntro' : 'checkin';
+    const initialStage: Stage = isFirstEcho ? 'firstEchoIntro' : 'invitation';
     setStage(initialStage);
 
     if (invitationRef.current === null) {
@@ -161,7 +165,26 @@ export default function UnifiedReflectLoopScreen() {
 
   const handleFirstEchoBegin = () => {
     trackEvent('first_echo_started', { isFirstEcho: true });
-    setStage('checkin');
+    setStage('invitation');
+  };
+
+  // --- Invitation handlers ---
+  const handleWriteWithInvitation = () => {
+    trackEvent('invitation_accepted');
+    setStage('writing');
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  };
+
+  const handleWriteOwn = () => {
+    trackEvent('invitation_skipped');
+    setStage('writing');
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  };
+
+  // --- Optional feeling selection (replaces mandatory checkin) ---
+  const handleFeelingSelect = (id: string) => {
+    setSelectedState(id);
+    setShowFeelingPanel(false);
   };
 
   const handleSelection = (id: string) => {
@@ -354,7 +377,7 @@ export default function UnifiedReflectLoopScreen() {
   }, [router, getFadeDuration]);
 
   // --- Revelation Actions ---
-  const handleReturnToDashboard = () => {
+  const handleReturnToAltheara = () => {
     trackEvent('revelation_return_dashboard');
     resetAndNavigate('/home');
   };
@@ -381,7 +404,7 @@ export default function UnifiedReflectLoopScreen() {
       }
     }
     // No insight — return to dashboard
-    handleReturnToDashboard();
+    handleReturnToAltheara();
   };
 
   const handleInsightIntroContinue = () => {
@@ -392,7 +415,7 @@ export default function UnifiedReflectLoopScreen() {
 
   const handleInsightIntroSkip = () => {
     markInsightSkipped();
-    handleReturnToDashboard();
+    handleReturnToAltheara();
   };
 
   const handleInsightSubmit = () => {
@@ -414,11 +437,11 @@ export default function UnifiedReflectLoopScreen() {
 
   const handleInsightSkip = () => {
     markInsightSkipped();
-    handleReturnToDashboard();
+    handleReturnToAltheara();
   };
 
   const handleInsightCompleteDone = () => {
-    handleReturnToDashboard();
+    handleReturnToAltheara();
   };
 
   // --- Error Handlers ---
@@ -513,49 +536,36 @@ export default function UnifiedReflectLoopScreen() {
       )}
 
       {/* ============================================================
-          STAGE: Check-In (Emotion Assembly)
+          STAGE: Invitation
           ============================================================ */}
-      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-20 transition-opacity duration-700 ease-in
-        ${stage === 'checkin' ? 'opacity-100 pointer-events-auto visible' : 'opacity-0 pointer-events-none invisible'}
+      <div className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 sm:p-12 z-20 transition-all duration-700 ease-in
+        ${stage === 'invitation' ? 'opacity-100 pointer-events-auto visible' : 'opacity-0 pointer-events-none invisible'}
       `}>
-        <header className={`mb-20 text-center transition-all duration-700 ease-out
-          ${selectedState ? 'opacity-0 blur-[10px] -translate-y-4' : 'opacity-100'}
-        `}>
-          <h1 className="font-serif text-2xl md:text-3xl text-[var(--color-text-ink)] mb-4">
-            What feels present right now?
-          </h1>
-        </header>
-        <div className="w-full max-w-lg grid grid-cols-2 gap-x-8 gap-y-16 sm:gap-x-12 sm:gap-y-20">
-          {lockedStates.map((stateInfo) => {
-            const isSelected = selectedState === stateInfo.id;
-            const hasSelection = selectedState !== null;
-            return (
-              <button
-                type="button"
-                key={stateInfo.id}
-                onClick={() => handleSelection(stateInfo.id)}
-                disabled={hasSelection}
-                className={`
-                  group flex flex-col items-center justify-center p-4 focus:outline-none
-                  ${stage === 'checkin' ? 'pointer-events-auto' : 'pointer-events-none'}
-                  ${hasSelection && !isSelected ? 'opacity-0 blur-[8px] transition-all duration-[500ms] ease-out' : 'opacity-80 hover:opacity-100 transition-all duration-[400ms] ease-out'}
-                  ${isSelected && !checkInDisappearing ? 'opacity-100 scale-[1.05] transition-all duration-[400ms] ease-out' : ''}
-                  ${isSelected && checkInDisappearing ? 'opacity-0 -translate-y-16 blur-sm transition-all duration-[800ms] ease-in-out' : ''}
-                  ${!hasSelection ? 'hover:scale-[1.02] active:scale-[0.98]' : ''}
-                `}
-                aria-pressed={isSelected}
-              >
-                <span className={`font-serif text-xl sm:text-2xl ${isSelected ? 'text-black font-medium' : 'text-[var(--color-text-graphite)] group-hover:text-[var(--color-text-ink)]'} transition-colors duration-[400ms]`}>
-                  {stateInfo.label}
-                </span>
-                <span className={`font-sans text-[10px] tracking-[0.2em] uppercase mt-3 transition-opacity duration-300
-                  ${isSelected ? 'opacity-0' : 'text-[var(--color-text-graphite)]/60 group-hover:text-[var(--color-accent-clay)]/70'}
-                `}>
-                  {stateInfo.description}
-                </span>
-              </button>
-            );
-          })}
+        <div className="flex flex-col items-center text-center max-w-md">
+          <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-60 mb-12">
+            Today&apos;s Invitation
+          </span>
+          <p className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] leading-relaxed mb-16">
+            &ldquo;{invitation}&rdquo;
+          </p>
+          <button
+            type="button"
+            onClick={handleWriteWithInvitation}
+            className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60 mb-12"
+          >
+            <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
+              Write an Echo &rarr;
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={handleWriteOwn}
+            className="group focus:outline-none transition-all duration-500 active:opacity-60"
+          >
+            <span className="font-serif italic text-[13px] sm:text-sm text-[var(--color-text-graphite)]/60 group-hover:text-[var(--color-text-graphite)]/90 transition-colors duration-500">
+              or leave your own Echo
+            </span>
+          </button>
         </div>
       </div>
 
@@ -635,6 +645,46 @@ export default function UnifiedReflectLoopScreen() {
         </button>
       </div>
 
+      {/* Optional Feeling — small, muted, subordinate to the writing */}
+      <div
+        className={`absolute bottom-36 flex flex-col items-center w-full transition-all duration-[600ms] ease-out z-20
+          ${stage === 'writing' && content.trim().length >= 10 && !isSubmitting ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
+        `}
+      >
+        {!showFeelingPanel && !selectedState && (
+          <button
+            type="button"
+            onClick={() => setShowFeelingPanel(true)}
+            className="font-sans text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-graphite)]/40 hover:text-[var(--color-text-graphite)]/70 transition-colors duration-500 focus:outline-none"
+          >
+            + Add a Feeling
+          </button>
+        )}
+        {selectedState && !showFeelingPanel && (
+          <button
+            type="button"
+            onClick={() => { setSelectedState(null); setShowFeelingPanel(true); }}
+            className="font-serif italic text-[12px] text-[var(--color-text-graphite)]/50 hover:text-[var(--color-text-graphite)]/80 transition-colors duration-500 focus:outline-none"
+          >
+            {lockedStates.find(s => s.id === selectedState)?.label}
+          </button>
+        )}
+        {showFeelingPanel && (
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 max-w-sm px-4 animate-[fadeIn_0.4s_ease-out_forwards]">
+            {lockedStates.map((stateInfo) => (
+              <button
+                key={stateInfo.id}
+                type="button"
+                onClick={() => handleFeelingSelect(stateInfo.id)}
+                className="font-serif text-sm text-[var(--color-text-graphite)]/60 hover:text-[var(--color-text-ink)] transition-colors duration-300 focus:outline-none px-1 py-0.5"
+              >
+                {stateInfo.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ============================================================
           STAGE: Morphing / Ceremonial Transition
           ============================================================ */}
@@ -673,6 +723,20 @@ export default function UnifiedReflectLoopScreen() {
       style={{ WebkitOverflowScrolling: 'auto', overscrollBehavior: 'none' }}
       >
         <div className="w-full max-w-lg px-6 sm:px-8 pt-[26vh] pb-[30vh]">
+          {/* Reflection ritual header */}
+          <div className={`text-center mb-16 transition-opacity ease-out
+            ${showReflection
+              ? `opacity-100 ${prefersReducedMotion ? 'duration-[200ms]' : 'duration-[500ms]'}`
+              : 'opacity-0 duration-0'
+            }
+          `}>
+            <span className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)] opacity-60 block mb-6">
+              Reflection
+            </span>
+            <p className="font-serif text-[15px] sm:text-base text-[var(--color-text-graphite)] leading-relaxed opacity-80">
+              What your words seem to hold.
+            </p>
+          </div>
           {reflectionParagraphs.map((paragraph, idx) => (
             <p
               key={idx}
@@ -899,7 +963,7 @@ export default function UnifiedReflectLoopScreen() {
                   transition-opacity ease-out duration-[1200ms] delay-[1000ms]
                   ${revelationPhase === 'resting' || revelationPhase === 'ready' ? 'opacity-100' : 'opacity-0'}
                 `}>
-                  Return tomorrow to see what begins to connect.
+                  As you leave more here, more begins to connect.
                 </p>
               </>
             ) : (
@@ -918,7 +982,7 @@ export default function UnifiedReflectLoopScreen() {
                   transition-opacity ease-out duration-[1200ms] delay-[1000ms]
                   ${revelationPhase === 'resting' || revelationPhase === 'ready' ? 'opacity-100' : 'opacity-0'}
                 `}>
-                  Your next Echo will bring more of this chapter into view.
+                  As you leave more here, more begins to connect.
                 </p>
               </>
             )}
@@ -936,7 +1000,7 @@ export default function UnifiedReflectLoopScreen() {
               className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
             >
               <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
-                Return to Dashboard
+                Return to Altheara
               </span>
             </button>
 
@@ -1070,7 +1134,7 @@ export default function UnifiedReflectLoopScreen() {
               className="group flex flex-col items-center focus:outline-none transition-all duration-500 active:scale-[0.98] active:opacity-60"
             >
               <span className="font-sans text-[var(--color-text-ink)] text-[11px] sm:text-xs tracking-[0.2em] uppercase border-b border-[var(--color-accent-clay)]/40 group-hover:border-[var(--color-accent-clay)] pb-2 transition-colors duration-[600ms]">
-                Return to Dashboard
+                Return to Altheara
               </span>
             </button>
           </div>

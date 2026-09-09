@@ -107,7 +107,7 @@ export default function ThresholdScreen() {
         </p>
 
         <p className="font-sans text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[#A89F91] mb-24 animate-[fadeInUp_3s_cubic-bezier(0.33,1,0.68,1)_forwards] opacity-0" style={{ animationDelay: '3s' }}>
-          Altheara helps you return to what matters.
+          Altheara keeps what you don&apos;t want to lose.
         </p>
 
         {/* Elite Personalized Micro-Moment */}
