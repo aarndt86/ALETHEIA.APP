@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PreservedBook, PreservedVolumeEdition } from '@/lib/volumeData';
 import BookDetailView from '@/components/library/BookDetailView';
 import EBookReader from '@/components/library/EBookReader';
+import RecordedPresenceView from '@/components/library/RecordedPresenceView';
 
 function DigitalLibraryContent() {
   const router = useRouter();
@@ -12,11 +13,13 @@ function DigitalLibraryContent() {
   const requestedBookId = searchParams.get('bookId');
   const requestedEditionId = searchParams.get('editionId');
   const shouldAutoRead = searchParams.get('read') === '1';
+  const shouldAutoOpenPresence = searchParams.get('presence') === '1' || searchParams.get('tab') === 'presence';
 
   const [books, setBooks] = useState<PreservedBook[]>([]);
   const [selectedBook, setSelectedBook] = useState<PreservedBook | null>(null);
   const [selectedEdition, setSelectedEdition] = useState<PreservedVolumeEdition | null>(null);
-  const [view, setView] = useState<'bookshelf' | 'detail' | 'reader'>('bookshelf');
+  const [targetChapterIndex, setTargetChapterIndex] = useState<number | undefined>(undefined);
+  const [view, setView] = useState<'bookshelf' | 'detail' | 'reader' | 'presence'>('bookshelf');
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +82,13 @@ function DigitalLibraryContent() {
                 setSelectedEdition(matchedBook.latestEdition);
               }
 
-              setView(shouldAutoRead ? 'reader' : 'detail');
+              if (shouldAutoRead) {
+                setView('reader');
+              } else if (shouldAutoOpenPresence) {
+                setView('presence');
+              } else {
+                setView('detail');
+              }
             }
           }
 
@@ -96,17 +105,18 @@ function DigitalLibraryContent() {
     return () => {
       isMounted = false;
     };
-  }, [requestedBookId, requestedEditionId, shouldAutoRead, searchParams]);
+  }, [requestedBookId, requestedEditionId, shouldAutoRead, shouldAutoOpenPresence, searchParams]);
 
   // Open Book Detail View
   const handleOpenBookDetail = (book: PreservedBook) => {
     setSelectedBook(book);
     setSelectedEdition(book.latestEdition);
+    setTargetChapterIndex(undefined);
     setView('detail');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Switch preserved edition within detail or reader
+  // Switch preserved edition within detail, reader, or recorded presence
   const handleSelectEdition = async (editionId: string) => {
     if (!selectedBook) return;
     try {
@@ -123,7 +133,13 @@ function DigitalLibraryContent() {
   };
 
   const handleOpenReader = () => {
+    setTargetChapterIndex(undefined);
     setView('reader');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenRecordedPresence = () => {
+    setView('presence');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -136,6 +152,7 @@ function DigitalLibraryContent() {
     setView('bookshelf');
     setSelectedBook(null);
     setSelectedEdition(null);
+    setTargetChapterIndex(undefined);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -145,10 +162,37 @@ function DigitalLibraryContent() {
       <EBookReader
         book={selectedBook}
         edition={selectedEdition}
+        initialChapterIndex={targetChapterIndex}
         onSelectEdition={handleSelectEdition}
         onBackToDetail={handleBackToDetail}
         onBackToBookshelf={handleBackToBookshelf}
       />
+    );
+  }
+
+  // If in Recorded Presence view (Phase D Experience)
+  if (view === 'presence' && selectedBook && selectedEdition) {
+    return (
+      <div className="min-h-screen bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] flex flex-col font-sans select-none">
+        <main className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-10 sm:py-14 flex-1 flex flex-col">
+          <RecordedPresenceView
+            book={selectedBook}
+            selectedEdition={selectedEdition}
+            onSelectEdition={handleSelectEdition}
+            onOpenReaderAtChapter={(chapterNum) => {
+              setTargetChapterIndex(Math.max(0, chapterNum - 1));
+              setView('reader');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onBackToDetail={handleBackToDetail}
+            onBackToBookshelf={handleBackToBookshelf}
+          />
+        </main>
+        <footer className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-8 border-t border-[var(--color-text-graphite)]/15 text-center flex flex-col items-center gap-1 text-[var(--color-text-graphite)]/60 font-sans text-[9px] tracking-widest uppercase">
+          <span>Authentic Living Memory &bull; Preserved in Private Vault</span>
+          <span>A Place for Your Life &bull; Altheara</span>
+        </footer>
+      </div>
     );
   }
 
@@ -214,6 +258,7 @@ function DigitalLibraryContent() {
             selectedEdition={selectedEdition}
             onSelectEdition={handleSelectEdition}
             onOpenReader={handleOpenReader}
+            onOpenRecordedPresence={handleOpenRecordedPresence}
             onBackToBookshelf={handleBackToBookshelf}
           />
         )}

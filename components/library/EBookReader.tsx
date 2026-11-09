@@ -6,6 +6,7 @@ import { PreservedBook, PreservedVolumeEdition, ReadingStateRecord } from '@/lib
 interface EBookReaderProps {
   book: PreservedBook;
   edition: PreservedVolumeEdition;
+  initialChapterIndex?: number;
   onSelectEdition: (editionId: string) => void;
   onBackToDetail: () => void;
   onBackToBookshelf: () => void;
@@ -38,11 +39,14 @@ function getCleanChapterTitle(chap: { title?: string }, roman: string): string {
 export default function EBookReader({
   book,
   edition,
+  initialChapterIndex,
   onSelectEdition,
   onBackToDetail,
   onBackToBookshelf,
 }: EBookReaderProps) {
-  const [activeChapterIndex, setActiveChapterIndex] = useState(0);
+  const [activeChapterIndex, setActiveChapterIndex] = useState(
+    initialChapterIndex !== undefined ? initialChapterIndex : 0
+  );
   const [readingStateLoaded, setReadingStateLoaded] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -66,6 +70,11 @@ export default function EBookReader({
 
   // 1. Load Reading State for this specific edition across sessions (Architectural Requirement 5 & 6)
   useEffect(() => {
+    if (initialChapterIndex !== undefined) {
+      setActiveChapterIndex(initialChapterIndex);
+      setReadingStateLoaded(true);
+      return;
+    }
     let isMounted = true;
     async function loadProgress() {
       try {

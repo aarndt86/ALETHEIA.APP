@@ -149,6 +149,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const assetId = searchParams.get('assetId');
+    const editionId = searchParams.get('editionId');
 
     if (!assetId) {
       return NextResponse.json({ error: 'Asset ID is required.' }, { status: 400 });
@@ -174,7 +175,41 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Access forbidden. You do not own this recording.' }, { status: 403 });
     }
 
-    // 4. Locate binary file
+    // 4. Verify edition attachment if editionId is explicitly requested (Cross-edition security)
+    if (editionId) {
+      const editionsDir = path.join(VAULT_DIR, member.id, 'editions');
+      let editionFound = false;
+      let editionRecordingAssetId: string | undefined;
+
+      if (fs.existsSync(editionsDir)) {
+        const files = fs.readdirSync(editionsDir).filter((f) => f.endsWith('.json'));
+        for (const f of files) {
+          try {
+            const edJson = JSON.parse(fs.readFileSync(path.join(editionsDir, f), 'utf-8'));
+            if (edJson.editionId === editionId) {
+              editionFound = true;
+              editionRecordingAssetId = edJson.authenticRecording?.assetId;
+              break;
+            }
+          } catch {
+            // ignore malformed file
+          }
+        }
+      }
+
+      if (!editionFound) {
+        return NextResponse.json({ error: 'Edition not found in member vault.' }, { status: 404 });
+      }
+
+      if (editionRecordingAssetId !== assetId) {
+        return NextResponse.json(
+          { error: 'Access forbidden. Recording asset does not belong to the specified edition.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 5. Locate binary file
     const mediaDir = getMemberMediaDir(member.id);
     const possibleExts = ['webm', 'mp4', 'ogg'];
     let filePath: string | null = null;
@@ -191,6 +226,42 @@ export async function GET(request: Request) {
     }
 
     const stat = fs.statSync(filePath);
+    const rangeHeader = request.headers.get('range');
+
+    // 6. Support HTTP Range requests (HTTP 206) for robust audio/video seeking
+    if (rangeHeader && rangeHeader.startsWith('bytes=')) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+
+      if (isNaN(start) || isNaN(end) || start >= stat.size || end >= stat.size || start > end) {
+        return new Response(null, {
+          status: 416,
+          headers: {
+            'Content-Range': `bytes */${stat.size}`,
+          },
+        });
+      }
+
+      const chunkSize = end - start + 1;
+      const fileBuffer = Buffer.alloc(chunkSize);
+      const fd = fs.openSync(filePath, 'r');
+      fs.readSync(fd, fileBuffer, 0, chunkSize, start);
+      fs.closeSync(fd);
+
+      return new Response(fileBuffer, {
+        status: 206,
+        headers: {
+          'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunkSize.toString(),
+          'Content-Type': asset.mimeType || 'audio/webm',
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'private, max-age=3600',
+        },
+      });
+    }
+
     const fileBuffer = fs.readFileSync(filePath);
 
     return new Response(fileBuffer, {
@@ -200,8 +271,8 @@ export async function GET(request: Request) {
         'Content-Length': stat.size.toString(),
         'Accept-Ranges': 'bytes',
         'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'private, max-age=3600'
-      }
+        'Cache-Control': 'private, max-age=3600',
+      },
     });
   } catch (err: unknown) {
     console.error('Recording retrieval error:', err);

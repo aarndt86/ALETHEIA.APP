@@ -9,6 +9,7 @@ interface BookDetailViewProps {
   selectedEdition: PreservedVolumeEdition;
   onSelectEdition: (editionId: string) => void;
   onOpenReader: () => void;
+  onOpenRecordedPresence: () => void;
   onBackToBookshelf: () => void;
 }
 
@@ -17,6 +18,7 @@ export default function BookDetailView({
   selectedEdition,
   onSelectEdition,
   onOpenReader,
+  onOpenRecordedPresence,
   onBackToBookshelf,
 }: BookDetailViewProps) {
   const router = useRouter();
@@ -300,28 +302,50 @@ export default function BookDetailView({
                 </span>
               </div>
 
-              {/* Choice 2: Experience Recorded Presence (Upcoming in Phase D) */}
-              <div className="p-5 sm:p-6 rounded-2xl bg-white/60 border border-[var(--color-text-graphite)]/15 flex items-center justify-between opacity-90">
+              {/* Choice 2: Experience Recorded Presence (Active in Phase D) */}
+              <div
+                onClick={onOpenRecordedPresence}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') onOpenRecordedPresence();
+                }}
+                className={`group cursor-pointer p-5 sm:p-6 rounded-2xl transition-all duration-300 flex items-center justify-between border shadow-sm active:scale-[0.99] ${
+                  selectedEdition.authenticRecording
+                    ? 'bg-white/85 hover:bg-white border-[var(--color-text-graphite)]/20 hover:border-[var(--color-accent-clay)]/40 hover:shadow-md'
+                    : 'bg-white/50 hover:bg-white/70 border-[var(--color-text-graphite)]/15'
+                }`}
+              >
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="font-serif text-xl sm:text-2xl font-medium tracking-tight text-[var(--color-text-ink)]">
                       Experience Recorded Presence
                     </span>
-                    <span className="py-0.5 px-2 rounded-full bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 font-sans text-[8px] tracking-widest uppercase text-[var(--color-text-graphite)]">
-                      Phase D
+                    <span
+                      className={`py-0.5 px-2 rounded-full font-sans text-[8px] tracking-widest uppercase font-semibold ${
+                        selectedEdition.authenticRecording
+                          ? 'bg-[var(--color-accent-clay)]/15 text-[var(--color-accent-clay)]'
+                          : 'bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 text-[var(--color-text-graphite)]'
+                      }`}
+                    >
+                      {selectedEdition.authenticRecording
+                        ? selectedEdition.authenticRecording.mediaType === 'video'
+                          ? 'Video Message'
+                          : 'Voice Take'
+                        : 'No Recording'}
                     </span>
                   </div>
                   <span className="font-serif italic text-xs text-[var(--color-text-graphite)]/80">
                     {selectedEdition.authenticRecording
-                      ? `Authentic ${selectedEdition.authenticRecording.mediaType === 'video' ? 'video take' : 'voice take'} (${selectedEdition.authenticRecording.durationSeconds}s) preserved with this book.`
-                      : 'No voice or video recording was attached to this edition.'}
+                      ? `Authentic ${
+                          selectedEdition.authenticRecording.mediaType === 'video' ? 'video take' : 'voice take'
+                        } (${selectedEdition.authenticRecording.durationSeconds}s) preserved with this book.`
+                      : 'This edition does not include a voice or video recording.'}
                   </span>
                 </div>
-                <div className="text-right shrink-0 ml-4">
-                  <span className="font-sans text-[10px] tracking-wider uppercase text-[var(--color-accent-clay)] font-medium">
-                    {selectedEdition.authenticRecording ? 'Preserved' : 'Not Attached'}
-                  </span>
-                </div>
+                <span className="font-sans text-xs tracking-widest uppercase text-[var(--color-accent-clay)] group-hover:translate-x-1 transition-transform ml-4 shrink-0 font-medium">
+                  {selectedEdition.authenticRecording ? 'Listen \u2192' : 'View Status \u2192'}
+                </span>
               </div>
 
               {/* Choice 3: My Physical Editions (Upcoming in Phase E) */}
