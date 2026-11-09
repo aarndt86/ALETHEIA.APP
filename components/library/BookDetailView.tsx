@@ -30,6 +30,32 @@ export default function BookDetailView({
   const [isCloningEdition, setIsCloningEdition] = useState(false);
   const [cloneError, setCloneError] = useState<string | null>(null);
 
+  // Legacy Publisher state
+  const [isStartingPublishing, setIsStartingPublishing] = useState(false);
+  const [publishingError, setPublishingError] = useState<string | null>(null);
+
+  const handleStartPublishing = async () => {
+    try {
+      setIsStartingPublishing(true);
+      setPublishingError(null);
+      const res = await fetch('/api/volume/publishing/draft/from-edition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ editionId: selectedEdition.editionId }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to initialize publishing draft from edition.');
+      }
+      const data = await res.json();
+      setIsStartingPublishing(false);
+      router.push(`/profile/volume-editor/editor?pubDraftId=${encodeURIComponent(data.publishingDraftId)}`);
+    } catch (err: unknown) {
+      setIsStartingPublishing(false);
+      setPublishingError(err instanceof Error ? err.message : 'Error starting publishing.');
+    }
+  };
+
   const handleConfirmNewEdition = async () => {
     try {
       setIsCloningEdition(true);
@@ -460,6 +486,33 @@ export default function BookDetailView({
                 Create a New Edition &rarr;
               </button>
             </div>
+
+            {/* Secondary Action: Legacy Publisher */}
+            <div className="pt-4 border-t border-[var(--color-text-graphite)]/10 flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="font-sans text-[9px] tracking-widest uppercase text-[var(--color-accent-clay)] font-semibold">
+                  Legacy Publisher
+                </span>
+                <span className="font-serif italic text-xs text-[var(--color-text-graphite)]/75">
+                  Turn this preserved edition into a finished publication.
+                </span>
+              </div>
+
+              <button
+                type="button"
+                disabled={isStartingPublishing}
+                onClick={handleStartPublishing}
+                className="py-1.5 px-4 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-[10px] tracking-[0.14em] uppercase transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+              >
+                {isStartingPublishing ? 'Preparing...' : 'Publish This Edition \u2192'}
+              </button>
+            </div>
+
+            {publishingError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-sans">
+                {publishingError}
+              </div>
+            )}
           </div>
         </div>
       </div>

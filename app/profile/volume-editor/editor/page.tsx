@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { useRouter, useSearchParams } from 'next/navigation';
 import { VolumeDraft, ManuscriptChapter, ManuscriptParagraph, SOURCE_VOLUMES } from '@/lib/volumeData';
 import { MASTER_STYLES, MasterStyleId, StyleDefinition } from '@/lib/manuscriptStyles';
+import { PublishingDraft } from '@/lib/publishingData';
 import VolumeCompletionModal, { CompletionStage } from '@/components/VolumeCompletionModal';
 
 type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error';
@@ -29,6 +30,9 @@ function ManuscriptEditorContent() {
   const searchParams = useSearchParams();
   const volumeId = searchParams.get('volumeId') || 'vol-2025';
   const draftId = searchParams.get('draftId');
+  const pubDraftId = searchParams.get('pubDraftId');
+  const isPublishingMode = Boolean(pubDraftId);
+
   const initialEditMode = searchParams.get('edit') === '1';
   const initialTocOpen = searchParams.get('toc') === '1';
   const initialStyleModal = searchParams.get('styleModal') === '1';
@@ -37,6 +41,7 @@ function ManuscriptEditorContent() {
   const initialStageParam = (searchParams.get('stage') as CompletionStage) || 'presence';
 
   const [draft, setDraft] = useState<VolumeDraft | null>(null);
+  const [publishingDraft, setPublishingDraft] = useState<PublishingDraft | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string>('');
   const [editingParagraphId, setEditingParagraphId] = useState<string | null>(null);
   const [editingTitleChapterId, setEditingTitleChapterId] = useState<string | null>(null);
@@ -69,6 +74,52 @@ function ManuscriptEditorContent() {
     async function loadDraft() {
       try {
         setSaveStatus('saving');
+
+        // STRICT REPOSITORY ISOLATION:
+        // When pubDraftId is present, the editor loads exclusively from the publishing endpoint
+        if (isPublishingMode && pubDraftId) {
+          const fetchUrl = `/api/volume/publishing/draft?pubDraftId=${encodeURIComponent(pubDraftId)}`;
+          const res = await fetch(fetchUrl);
+          if (!res.ok) throw new Error('Failed to load publishing draft');
+          const data = await res.json();
+          if (isMounted && data.draft) {
+            const pubD: PublishingDraft = data.draft;
+            setPublishingDraft(pubD);
+            const adaptedDraft: VolumeDraft = {
+              draftId: pubD.publishingDraftId,
+              sourceVolumeId: pubD.sourceVolumeId,
+              year: pubD.sourceVolumeId === 'vol-2025' ? 2025 : 2026,
+              bookTitle: pubD.bookTitle,
+              originalBookTitle: pubD.bookTitle,
+              subtitle: pubD.subtitle || '',
+              authorName: pubD.authorDisplayName || 'Author',
+              chapters: pubD.chapters,
+              lastSavedAt: pubD.lastSavedAt,
+              version: pubD.version,
+              isDirty: false,
+              clonedFromEditionId: pubD.sourceEditionId,
+              clonedFromVersion: pubD.sourceEditionVersion,
+            };
+            setDraft(adaptedDraft);
+            if (pubD.chapters && pubD.chapters.length > 0) {
+              const chapterQuery = searchParams.get('chapter');
+              const targetChap = chapterQuery 
+                ? pubD.chapters.find((c: ManuscriptChapter) => c.number.toString() === chapterQuery || c.id === chapterQuery || c.romanNumeral === chapterQuery)
+                : pubD.chapters[0];
+              setActiveChapterId(targetChap ? targetChap.id : pubD.chapters[0].id);
+              if (initialEditMode && pubD.chapters[0].paragraphs && pubD.chapters[0].paragraphs.length > 0) {
+                setEditingParagraphId(pubD.chapters[0].paragraphs[0].id);
+              }
+              if (initialStyleTab && pubD.chapters[0].paragraphs && pubD.chapters[0].paragraphs.length > 0) {
+                setActiveStyleTabParagraphId(pubD.chapters[0].paragraphs[0].id);
+              }
+            }
+            setSaveStatus('saved');
+            setLastSavedTimeText('Loaded from Vault');
+          }
+          return;
+        }
+
         const fetchUrl = draftId
           ? `/api/volume/draft?volumeId=${volumeId}&draftId=${draftId}`
           : `/api/volume/draft?volumeId=${volumeId}`;
@@ -102,12 +153,42 @@ function ManuscriptEditorContent() {
     return () => {
       isMounted = false;
     };
-  }, [volumeId, draftId, initialEditMode]);
+  }, [volumeId, draftId, pubDraftId, isPublishingMode, initialEditMode]);
 
   // Save function to server
   const saveDraftToServer = useCallback(async (draftToSave: VolumeDraft) => {
     try {
       setSaveStatus('saving');
+
+      // STRICT REPOSITORY ISOLATION:
+      // When in publishing mode, saving sends EXCLUSIVELY to /api/volume/publishing/draft.
+      // It can never touch /api/volume/draft or write to .data/drafts/
+      if (isPublishingMode && pubDraftId) {
+        const res = await fetch('/api/volume/publishing/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pubDraftId,
+            draft: {
+              bookTitle: draftToSave.bookTitle,
+              subtitle: draftToSave.subtitle,
+              chapters: draftToSave.chapters,
+            }
+          }),
+        });
+        if (!res.ok) throw new Error('Publishing save failed');
+        const data = await res.json();
+        setSaveStatus('saved');
+        setLastSavedTimeText('Just now');
+        // STRICT LOCALSTORAGE ISOLATION (Requirement 4)
+        try {
+          localStorage.setItem(`altheara_pub_draft_${pubDraftId}`, JSON.stringify(data.draft));
+        } catch {
+          // storage fallback
+        }
+        return;
+      }
+
       const res = await fetch('/api/volume/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,7 +209,7 @@ function ManuscriptEditorContent() {
       console.error('Save error:', err);
       setSaveStatus('error');
     }
-  }, []);
+  }, [isPublishingMode, pubDraftId]);
 
   // Trigger debounced auto-save whenever draft changes
   const queueAutoSave = useCallback((updatedDraft: VolumeDraft) => {
@@ -395,11 +476,26 @@ function ManuscriptEditorContent() {
     }
     setIsExiting(true);
     setTimeout(() => {
-      router.push('/profile/volume-editor');
+      if (isPublishingMode) {
+        router.push(`/profile/digital-library?bookId=${draft?.sourceVolumeId || volumeId}`);
+      } else {
+        router.push('/profile/volume-editor');
+      }
     }, 400);
   };
 
-  // Handle Volume Completion Flow
+  // Handle Proceed to Book Cover in Publishing Mode
+  const handleProceedToCover = async () => {
+    if (draft && saveStatus === 'dirty') {
+      await saveDraftToServer(draft);
+    }
+    setIsExiting(true);
+    setTimeout(() => {
+      router.push(`/profile/digital-library?bookId=${draft?.sourceVolumeId || volumeId}&step=3&pubDraftId=${encodeURIComponent(pubDraftId || '')}`);
+    }, 400);
+  };
+
+  // Handle Volume Completion Flow (Private Mode only)
   const handleStartCompletionFlow = async () => {
     if (draft && saveStatus === 'dirty') {
       await saveDraftToServer(draft);
@@ -437,23 +533,25 @@ function ManuscriptEditorContent() {
           TOP STUDIO CONTROL BAR (Quiet, Non-intrusive, Literary)
           ============================================================ */}
       <nav className="sticky top-0 z-40 w-full bg-[var(--color-canvas-linen)]/95 backdrop-blur-md border-b border-[var(--color-text-graphite)]/10 px-3 sm:px-8 py-3 sm:py-3.5 flex items-center justify-between">
-        {/* Left: Back to Volumes */}
+        {/* Left: Back to Volumes or Library */}
         <button
           type="button"
           onClick={handleExitToVolumes}
           className="group flex items-center gap-1.5 font-sans text-[10px] sm:text-[11px] tracking-[0.18em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors focus:outline-none shrink-0"
         >
           <span className="group-hover:-translate-x-1 transition-transform duration-300">&larr;</span>
-          <span>Volumes</span>
+          <span>{isPublishingMode ? 'Library' : 'Volumes'}</span>
         </button>
 
         {/* Center: Book & Year Title */}
         <div className="hidden md:flex flex-col items-center text-center">
           <span className="font-serif font-medium text-xs sm:text-sm tracking-wide text-[var(--color-text-ink)]">
-            {draft.bookTitle} &bull; {draft.year}
+            {draft.bookTitle} &bull; {isPublishingMode ? 'Legacy Publisher' : draft.year}
           </span>
           <span className="font-sans text-[9px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)]/60">
-            {draft.clonedFromVersion ? `Branching from Edition v${draft.clonedFromVersion}` : 'Private Working Edition'}
+            {isPublishingMode
+              ? `Publishing Draft \u2022 Derived from Edition v${draft.clonedFromVersion || 1}`
+              : (draft.clonedFromVersion ? `Branching from Edition v${draft.clonedFromVersion}` : 'Private Working Edition')}
           </span>
         </div>
 
@@ -499,15 +597,26 @@ function ManuscriptEditorContent() {
             <span className="sm:hidden">Later</span>
           </button>
 
-          {/* Finish My Volume Action */}
-          <button
-            type="button"
-            onClick={handleStartCompletionFlow}
-            className="py-1 px-3 sm:py-1.5 sm:px-4 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-[9px] sm:text-[11px] tracking-[0.14em] uppercase transition-all duration-300 active:scale-[0.98] focus:outline-none whitespace-nowrap shadow-sm"
-          >
-            <span className="hidden sm:inline">Finish My Volume</span>
-            <span className="sm:hidden">Finish</span>
-          </button>
+          {/* Action: Finish Volume (Private Mode) or Proceed to Book Cover (Publishing Mode) */}
+          {isPublishingMode ? (
+            <button
+              type="button"
+              onClick={handleProceedToCover}
+              className="py-1 px-3 sm:py-1.5 sm:px-4 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-[9px] sm:text-[11px] tracking-[0.14em] uppercase transition-all duration-300 active:scale-[0.98] focus:outline-none whitespace-nowrap shadow-sm"
+            >
+              <span className="hidden sm:inline">Proceed to Book Cover &rarr;</span>
+              <span className="sm:hidden">Next Step &rarr;</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleStartCompletionFlow}
+              className="py-1 px-3 sm:py-1.5 sm:px-4 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-[9px] sm:text-[11px] tracking-[0.14em] uppercase transition-all duration-300 active:scale-[0.98] focus:outline-none whitespace-nowrap shadow-sm"
+            >
+              <span className="hidden sm:inline">Finish My Volume</span>
+              <span className="sm:hidden">Finish</span>
+            </button>
+          )}
         </div>
       </nav>
 
