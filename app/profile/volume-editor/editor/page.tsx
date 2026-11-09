@@ -226,7 +226,7 @@ function ManuscriptEditorContent() {
     }, 400);
   };
 
-  if (!draft) {
+  if (!draft || !draft.chapters || draft.chapters.length === 0) {
     return (
       <main className="min-h-[100dvh] w-full flex flex-col items-center justify-center p-8 bg-[var(--color-canvas-linen)]">
         <div className="flex flex-col items-center gap-4 text-center">
@@ -240,6 +240,9 @@ function ManuscriptEditorContent() {
   }
 
   const currentChapter = draft.chapters.find((c) => c.id === activeChapterId) || draft.chapters[0];
+  if (!currentChapter) {
+    return null;
+  }
   const sourceMeta = SOURCE_VOLUMES.find((v) => v.id === draft.sourceVolumeId);
 
   return (
@@ -409,10 +412,10 @@ function ManuscriptEditorContent() {
           >
             <div>
               <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] block">
-                Chapter {currentChapter.romanNumeral}
+                Chapter {currentChapter?.romanNumeral || 'I'}
               </span>
               <span className="font-serif text-sm font-medium text-[var(--color-text-ink)]">
-                {currentChapter.title}
+                {currentChapter?.title || 'Chapter I'}
               </span>
             </div>
             <span className="font-sans text-xs text-[var(--color-text-graphite)]">
@@ -436,7 +439,7 @@ function ManuscriptEditorContent() {
                     setEditingParagraphId(null);
                   }}
                   className={`text-left p-2 rounded-lg transition-colors flex items-center justify-between ${
-                    chap.id === currentChapter.id
+                    chap.id === currentChapter?.id
                       ? 'bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] font-medium shadow-sm'
                       : 'text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)]'
                   }`}
@@ -445,7 +448,7 @@ function ManuscriptEditorContent() {
                     {chap.romanNumeral}. {chap.title}
                   </span>
                   <span className="font-sans text-[10px] text-[var(--color-text-graphite)]/60">
-                    {chap.paragraphs.length} passages
+                    {chap.paragraphs?.length || 0} passages
                   </span>
                 </button>
               ))}
@@ -460,7 +463,7 @@ function ManuscriptEditorContent() {
           {/* Archival Folio Running Header */}
           <div className="w-full flex flex-col items-center mb-10 sm:mb-16 select-none opacity-60">
             <span className="font-sans text-[8px] sm:text-[9px] tracking-[0.2em] sm:tracking-[0.35em] uppercase text-[var(--color-text-graphite)] text-center px-2">
-              Altheara &bull; Volume {draft.year} &bull; Chapter {currentChapter.romanNumeral}
+              Altheara &bull; Volume {draft.year} &bull; Chapter {currentChapter?.romanNumeral || 'I'}
             </span>
             <div className="w-16 h-[1px] bg-[var(--color-text-graphite)]/20 mt-3"></div>
           </div>
@@ -468,15 +471,15 @@ function ManuscriptEditorContent() {
           {/* Chapter Opening: Roman Numeral & Editable Title */}
           <header className="mb-14 sm:mb-20 text-center flex flex-col items-center">
             <span className="font-sans text-[11px] sm:text-xs tracking-[0.3em] uppercase text-[var(--color-accent-clay)] font-medium mb-3">
-              Chapter {currentChapter.romanNumeral}
+              Chapter {currentChapter?.romanNumeral || 'I'}
             </span>
 
             {/* Editable Chapter Title */}
-            {editingTitleChapterId === currentChapter.id ? (
+            {editingTitleChapterId === currentChapter?.id ? (
               <div className="w-full max-w-md flex flex-col items-center gap-2">
                 <input
                   type="text"
-                  defaultValue={currentChapter.title}
+                  defaultValue={currentChapter?.title}
                   autoFocus
                   onBlur={(e) => {
                     handleChapterTitleChange(currentChapter.id, e.target.value.trim() || currentChapter.originalTitle);
@@ -497,12 +500,12 @@ function ManuscriptEditorContent() {
               </div>
             ) : (
               <div
-                onClick={() => setEditingTitleChapterId(currentChapter.id)}
+                onClick={() => setEditingTitleChapterId(currentChapter?.id || '')}
                 className="group cursor-pointer flex items-center justify-center gap-3 relative px-4 py-1 rounded hover:bg-[var(--color-canvas-stone)]/40 transition-colors"
                 title="Click to rename chapter"
               >
                 <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-[var(--color-text-ink)] tracking-tight">
-                  {currentChapter.title}
+                  {currentChapter?.title}
                 </h1>
                 <span className="opacity-0 group-hover:opacity-60 transition-opacity font-sans text-xs text-[var(--color-text-graphite)]">
                   ✎
@@ -523,7 +526,7 @@ function ManuscriptEditorContent() {
               Genuine Book Prose - No Ugly Form Boxes!
               ======================================================== */}
           <div className="flex flex-col gap-10 sm:gap-14 leading-[2.2] sm:leading-[2.4]">
-            {currentChapter.paragraphs.map((p, pIdx) => {
+            {currentChapter?.paragraphs?.map((p, pIdx) => {
               const isEditing = editingParagraphId === p.id;
               const isFirstParagraph = pIdx === 0;
 
@@ -625,18 +628,20 @@ function ManuscriptEditorContent() {
           {/* End of Chapter Mark */}
           <footer className="mt-20 pt-10 border-t border-[var(--color-text-graphite)]/15 flex flex-col items-center gap-6">
             <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)]/50">
-              End of Chapter {currentChapter.romanNumeral}
+              End of Chapter {currentChapter?.romanNumeral || 'I'}
             </span>
 
             {/* Chapter Navigation Buttons */}
             <div className="flex items-center gap-6">
-              {draft.chapters.findIndex((c) => c.id === currentChapter.id) > 0 && (
+              {draft.chapters.findIndex((c) => c.id === currentChapter?.id) > 0 && (
                 <button
                   type="button"
                   onClick={() => {
-                    const prevIdx = draft.chapters.findIndex((c) => c.id === currentChapter.id) - 1;
-                    setActiveChapterId(draft.chapters[prevIdx].id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    const prevIdx = draft.chapters.findIndex((c) => c.id === currentChapter?.id) - 1;
+                    if (draft.chapters[prevIdx]) {
+                      setActiveChapterId(draft.chapters[prevIdx].id);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                   }}
                   className="font-sans text-xs tracking-wider uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors"
                 >
@@ -644,13 +649,15 @@ function ManuscriptEditorContent() {
                 </button>
               )}
 
-              {draft.chapters.findIndex((c) => c.id === currentChapter.id) < draft.chapters.length - 1 && (
+              {draft.chapters.findIndex((c) => c.id === currentChapter?.id) < draft.chapters.length - 1 && (
                 <button
                   type="button"
                   onClick={() => {
-                    const nextIdx = draft.chapters.findIndex((c) => c.id === currentChapter.id) + 1;
-                    setActiveChapterId(draft.chapters[nextIdx].id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    const nextIdx = draft.chapters.findIndex((c) => c.id === currentChapter?.id) + 1;
+                    if (draft.chapters[nextIdx]) {
+                      setActiveChapterId(draft.chapters[nextIdx].id);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                   }}
                   className="py-2 px-5 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[10px] tracking-[0.2em] uppercase hover:bg-[var(--color-text-ink)]/90 transition-all active:scale-[0.98]"
                 >

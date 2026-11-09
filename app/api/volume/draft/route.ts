@@ -30,7 +30,10 @@ export async function GET(request: Request) {
       if (fs.existsSync(filePath)) {
         const raw = fs.readFileSync(filePath, 'utf-8');
         const draft: VolumeDraft = JSON.parse(raw);
-        return NextResponse.json({ draft, source: 'persisted_disk' });
+        // Ensure chapters is a non-empty array
+        if (draft && Array.isArray(draft.chapters) && draft.chapters.length > 0) {
+          return NextResponse.json({ draft, source: 'persisted_disk' });
+        }
       }
     } catch (fsErr) {
       console.warn('Filesystem read failed, checking memory store:', fsErr);
@@ -38,7 +41,10 @@ export async function GET(request: Request) {
 
     // 2. Check memory store
     if (memoryDraftStore.has(volumeId)) {
-      return NextResponse.json({ draft: memoryDraftStore.get(volumeId), source: 'memory' });
+      const memDraft = memoryDraftStore.get(volumeId);
+      if (memDraft && Array.isArray(memDraft.chapters) && memDraft.chapters.length > 0) {
+        return NextResponse.json({ draft: memDraft, source: 'memory' });
+      }
     }
 
     // 3. Initialize fresh draft cloned from immutable source
@@ -66,8 +72,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid draft payload' }, { status: 400 });
     }
 
+    // Validate chapters: never overwrite valid chapters with an empty array
+    let chaptersToSave = body.chapters;
+    if (!Array.isArray(chaptersToSave) || chaptersToSave.length === 0) {
+      const fallback = createInitialDraft(body.sourceVolumeId);
+      chaptersToSave = fallback.chapters;
+    }
+
     const updatedDraft: VolumeDraft = {
       ...body,
+      chapters: chaptersToSave,
       version: (body.version || 1) + 1,
       lastSavedAt: new Date().toISOString(),
       isDirty: false
