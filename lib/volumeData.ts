@@ -207,6 +207,17 @@ export interface PreservedBook {
   lastPreservedAt: string;
 }
 
+// --- READING STATE ISOLATION ---
+// Brief Section 6 & 10: Reading progress must be separate from immutable manuscript data.
+export interface ReadingStateRecord {
+  memberId: string;
+  editionId: string;
+  chapterIndex: number;
+  paragraphId?: string;
+  scrollPercentage?: number;
+  lastReadAt: string;
+}
+
 // --- IMMUTABLE SOURCE VOLUMES ---
 export const SOURCE_VOLUMES: VolumeSummary[] = [
   {
