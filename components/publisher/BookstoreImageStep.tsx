@@ -173,9 +173,13 @@ export function BookstoreImageStep({ draft, pubDraftId, onDraftUpdate }: Booksto
           >
             Step 3: Story Preview
           </button>
-          <span className="text-[var(--color-text-graphite)]/40 cursor-not-allowed uppercase" title="Available in Phase LP2D">
-            Step 4: Review
-          </span>
+          <button
+            type="button"
+            onClick={() => router.push(`/profile/legacy-publisher?pubDraftId=${encodeURIComponent(pubDraftId)}&step=4`)}
+            className="text-[var(--color-text-graphite)]/60 hover:text-[var(--color-text-ink)] uppercase focus:outline-none"
+          >
+            Step 4: Final Review
+          </button>
         </div>
       </nav>
 
