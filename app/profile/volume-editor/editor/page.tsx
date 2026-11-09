@@ -3,8 +3,25 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { VolumeDraft, ManuscriptChapter, ManuscriptParagraph, SOURCE_VOLUMES } from '@/lib/volumeData';
+import { MASTER_STYLES, MasterStyleId, StyleDefinition } from '@/lib/manuscriptStyles';
 
 type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error';
+
+interface RefineTarget {
+  chapterId: string;
+  paragraphId: string;
+  text: string;
+  paragraphIndex: number;
+}
+
+interface RefineResult {
+  revisedText: string;
+  summary: string;
+  styleLabel: string;
+  styleSubtitle: string;
+  styleIcon: string;
+  badgeColor: string;
+}
 
 function ManuscriptEditorContent() {
   const router = useRouter();
@@ -12,6 +29,8 @@ function ManuscriptEditorContent() {
   const volumeId = searchParams.get('volumeId') || 'vol-2025';
   const initialEditMode = searchParams.get('edit') === '1';
   const initialTocOpen = searchParams.get('toc') === '1';
+  const initialStyleModal = searchParams.get('styleModal') === '1';
+  const initialStyleParam = (searchParams.get('style') as MasterStyleId) || 'warm';
 
   const [draft, setDraft] = useState<VolumeDraft | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string>('');
@@ -21,6 +40,16 @@ function ManuscriptEditorContent() {
   const [lastSavedTimeText, setLastSavedTimeText] = useState('Just now');
   const [mobileTocOpen, setMobileTocOpen] = useState(initialTocOpen);
   const [isExiting, setIsExiting] = useState(false);
+
+  // Five Master Styles Refinement & Diff Modal state
+  const [refineModalOpen, setRefineModalOpen] = useState(false);
+  const [refineTarget, setRefineTarget] = useState<RefineTarget | null>(null);
+  const [refineScope, setRefineScope] = useState<'passage' | 'chapter'>('passage');
+  const [selectedStyle, setSelectedStyle] = useState<MasterStyleId>('reflective');
+  const [refineResult, setRefineResult] = useState<RefineResult | null>(null);
+  const [isRefining, setIsRefining] = useState(false);
+  const [customInstruction, setCustomInstruction] = useState('');
+  const [refineError, setRefineError] = useState<string | null>(null);
 
   // Auto-save debounce timer
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -36,9 +65,9 @@ function ManuscriptEditorContent() {
         const data = await res.json();
         if (isMounted && data.draft) {
           setDraft(data.draft);
-          if (data.draft.chapters.length > 0) {
+          if (data.draft.chapters && data.draft.chapters.length > 0) {
             setActiveChapterId(data.draft.chapters[0].id);
-            if (initialEditMode && data.draft.chapters[0].paragraphs.length > 0) {
+            if (initialEditMode && data.draft.chapters[0].paragraphs && data.draft.chapters[0].paragraphs.length > 0) {
               setEditingParagraphId(data.draft.chapters[0].paragraphs[0].id);
             }
           }
@@ -99,7 +128,7 @@ function ManuscriptEditorContent() {
     };
   }, []);
 
-  // Update a paragraph's text inline
+  // Paragraph manual editing handlers
   const handleParagraphChange = (chapterId: string, paragraphId: string, newText: string) => {
     if (!draft) return;
 
@@ -128,32 +157,48 @@ function ManuscriptEditorContent() {
     queueAutoSave(updatedDraft);
   };
 
-  // Revert a paragraph to original source text
   const handleRevertParagraph = (chapterId: string, paragraphId: string) => {
     if (!draft) return;
-    const targetChap = draft.chapters.find((c) => c.id === chapterId);
-    const targetP = targetChap?.paragraphs.find((p) => p.id === paragraphId);
-    if (!targetP) return;
 
-    handleParagraphChange(chapterId, paragraphId, targetP.originalText);
-    setEditingParagraphId(null);
+    const updatedChapters = draft.chapters.map((chap) => {
+      if (chap.id !== chapterId) return chap;
+      return {
+        ...chap,
+        paragraphs: chap.paragraphs.map((p) => {
+          if (p.id !== paragraphId) return p;
+          return {
+            ...p,
+            text: p.originalText,
+            isModified: false,
+          };
+        }),
+      };
+    });
+
+    const updatedDraft: VolumeDraft = {
+      ...draft,
+      chapters: updatedChapters,
+      isDirty: true,
+    };
+
+    setDraft(updatedDraft);
+    queueAutoSave(updatedDraft);
   };
 
-  // Add a new passage to chapter
-  const handleAddParagraph = (chapterId: string, afterParagraphIndex: number) => {
+  const handleAddParagraph = (chapterId: string, afterIdx: number) => {
     if (!draft) return;
-    const newId = `p-${Date.now()}`;
+
     const newParagraph: ManuscriptParagraph = {
-      id: newId,
-      text: '',
-      originalText: '',
+      id: `p-${Date.now()}`,
+      text: "Write your reflection or memory here...",
+      originalText: "",
       isModified: true,
     };
 
     const updatedChapters = draft.chapters.map((chap) => {
       if (chap.id !== chapterId) return chap;
       const newParagraphs = [...chap.paragraphs];
-      newParagraphs.splice(afterParagraphIndex + 1, 0, newParagraph);
+      newParagraphs.splice(afterIdx + 1, 0, newParagraph);
       return {
         ...chap,
         paragraphs: newParagraphs,
@@ -167,13 +212,13 @@ function ManuscriptEditorContent() {
     };
 
     setDraft(updatedDraft);
-    setEditingParagraphId(newId);
     queueAutoSave(updatedDraft);
+    setEditingParagraphId(newParagraph.id);
   };
 
-  // Delete a passage from chapter
   const handleDeleteParagraph = (chapterId: string, paragraphId: string) => {
     if (!draft) return;
+
     const updatedChapters = draft.chapters.map((chap) => {
       if (chap.id !== chapterId) return chap;
       return {
@@ -189,13 +234,14 @@ function ManuscriptEditorContent() {
     };
 
     setDraft(updatedDraft);
-    setEditingParagraphId(null);
     queueAutoSave(updatedDraft);
+    setEditingParagraphId(null);
   };
 
-  // Update a chapter's title
+  // Chapter Title editing handler
   const handleChapterTitleChange = (chapterId: string, newTitle: string) => {
     if (!draft) return;
+
     const updatedChapters = draft.chapters.map((chap) => {
       if (chap.id !== chapterId) return chap;
       return {
@@ -213,6 +259,113 @@ function ManuscriptEditorContent() {
 
     setDraft(updatedDraft);
     queueAutoSave(updatedDraft);
+  };
+
+  // ============================================================
+  // FIVE MASTER STYLES REFINEMENT & COMPARISON LOGIC
+  // ============================================================
+
+  const fetchRefinement = async (text: string, style: MasterStyleId, scope: 'passage' | 'chapter', instruction?: string) => {
+    setIsRefining(true);
+    setRefineError(null);
+    try {
+      const res = await fetch('/api/volume/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          style,
+          scope,
+          customInstruction: instruction,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to refine');
+      const data = await res.json();
+      setRefineResult({
+        revisedText: data.revisedText,
+        summary: data.summary,
+        styleLabel: data.styleLabel,
+        styleSubtitle: data.styleSubtitle,
+        styleIcon: data.styleIcon,
+        badgeColor: data.badgeColor,
+      });
+    } catch (err) {
+      console.error('Refinement error:', err);
+      setRefineError('Failed to generate revision. Please try again.');
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  // Open refinement modal directly for a given style & target
+  const handleOpenRefine = useCallback(async (
+    chapterId: string,
+    paragraphId: string,
+    text: string,
+    paragraphIndex: number,
+    initialStyle: MasterStyleId = 'reflective'
+  ) => {
+    setRefineTarget({ chapterId, paragraphId, text, paragraphIndex });
+    setRefineScope('passage');
+    setSelectedStyle(initialStyle);
+    setCustomInstruction('');
+    setRefineModalOpen(true);
+    await fetchRefinement(text, initialStyle, 'passage', '');
+  }, []);
+
+  // Auto-open modal if styleModal=1 in URL (for previews/QA testing)
+  useEffect(() => {
+    if (initialStyleModal && draft && draft.chapters.length > 0 && draft.chapters[0].paragraphs.length > 0) {
+      const p = draft.chapters[0].paragraphs[0];
+      handleOpenRefine(draft.chapters[0].id, p.id, p.text, 0, initialStyleParam);
+    }
+  }, [initialStyleModal, draft, initialStyleParam, handleOpenRefine]);
+
+  // Switch style inside the modal
+  const handleSwitchModalStyle = async (newStyle: MasterStyleId) => {
+    if (!refineTarget) return;
+    setSelectedStyle(newStyle);
+    await fetchRefinement(refineTarget.text, newStyle, refineScope, customInstruction);
+  };
+
+  // Apply custom instruction in modal
+  const handleApplyCustomInstruction = async () => {
+    if (!refineTarget) return;
+    await fetchRefinement(refineTarget.text, selectedStyle, refineScope, customInstruction);
+  };
+
+  // Accept and apply revision to manuscript
+  const handleApplyRefinement = () => {
+    if (!refineTarget || !refineResult || !draft) return;
+
+    const { chapterId, paragraphId } = refineTarget;
+    const updatedChapters = draft.chapters.map((chap) => {
+      if (chap.id !== chapterId) return chap;
+      return {
+        ...chap,
+        paragraphs: chap.paragraphs.map((p) => {
+          if (p.id !== paragraphId) return p;
+          return {
+            ...p,
+            text: refineResult.revisedText,
+            isModified: true,
+          };
+        }),
+      };
+    });
+
+    const updatedDraft: VolumeDraft = {
+      ...draft,
+      chapters: updatedChapters,
+      isDirty: true,
+    };
+
+    setDraft(updatedDraft);
+    queueAutoSave(updatedDraft);
+    setRefineModalOpen(false);
+    setRefineTarget(null);
+    setRefineResult(null);
+    setEditingParagraphId(null);
   };
 
   // Handle Exit / Return
@@ -469,7 +622,7 @@ function ManuscriptEditorContent() {
           </div>
 
           {/* Chapter Opening: Roman Numeral & Editable Title */}
-          <header className="mb-14 sm:mb-20 text-center flex flex-col items-center">
+          <header className="mb-12 sm:mb-16 text-center flex flex-col items-center">
             <span className="font-sans text-[11px] sm:text-xs tracking-[0.3em] uppercase text-[var(--color-accent-clay)] font-medium mb-3">
               Chapter {currentChapter?.romanNumeral || 'I'}
             </span>
@@ -523,7 +676,7 @@ function ManuscriptEditorContent() {
 
           {/* ========================================================
               MANUSCRIPT READING & EDITING SURFACE
-              Genuine Book Prose - No Ugly Form Boxes!
+              Genuine Book Prose with Inline Master Writing Styles
               ======================================================== */}
           <div className="flex flex-col gap-10 sm:gap-14 leading-[2.2] sm:leading-[2.4]">
             {currentChapter?.paragraphs?.map((p, pIdx) => {
@@ -532,51 +685,94 @@ function ManuscriptEditorContent() {
 
               return (
                 <div key={p.id} className="group relative flex flex-col">
-                  {/* Contextual Toolbar when actively editing this paragraph */}
+                  {/* ========================================================
+                      FIVE PRELOADED MASTER STYLES BAR (When Editing)
+                      Visible immediately above active paragraph
+                      ======================================================== */}
                   {isEditing && (
-                    <div className="flex items-center justify-between mb-2 px-1 select-none animate-[fadeIn_0.2s_ease-out_forwards]">
-                      <span className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-medium">
-                        Editing Passage {pIdx + 1}
-                      </span>
-                      <div className="flex items-center gap-3">
-                        {p.isModified && (
+                    <div className="flex flex-col gap-2.5 mb-3 select-none animate-[fadeIn_0.2s_ease-out_forwards]">
+                      {/* Top Action Row */}
+                      <div className="flex items-center justify-between px-1">
+                        <span className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1.5">
+                          <span>Passage {pIdx + 1}</span>
+                          {p.isModified && (
+                            <span className="text-[9px] font-normal text-[var(--color-accent-sage)] bg-[var(--color-accent-sage)]/10 px-1.5 py-0.5 rounded">
+                              Edited
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-3">
+                          {p.isModified && (
+                            <button
+                              type="button"
+                              onClick={() => handleRevertParagraph(currentChapter.id, p.id)}
+                              className="font-sans text-[10px] tracking-wider text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] underline transition-colors"
+                            >
+                              Revert to original
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => handleRevertParagraph(currentChapter.id, p.id)}
-                            className="font-sans text-[10px] tracking-wider text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] underline transition-colors"
+                            onClick={() => handleDeleteParagraph(currentChapter.id, p.id)}
+                            className="font-sans text-[10px] tracking-wider text-red-500/70 hover:text-red-700 transition-colors"
                           >
-                            Revert to original
+                            Remove
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteParagraph(currentChapter.id, p.id)}
-                          className="font-sans text-[10px] tracking-wider text-red-500/70 hover:text-red-700 transition-colors"
-                        >
-                          Remove passage
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingParagraphId(null)}
-                          className="py-0.5 px-2.5 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[9px] tracking-wider uppercase transition-transform active:scale-95"
-                        >
-                          Done
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingParagraphId(null)}
+                            className="py-0.5 px-3 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[9px] tracking-wider uppercase transition-transform active:scale-95"
+                          >
+                            Done
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* THE FIVE PRELOADED OPTIONS PANEL */}
+                      <div className="p-3 rounded-xl bg-[var(--color-canvas-stone)]/70 border border-[var(--color-text-graphite)]/15 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-sans text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1">
+                            <span>✨</span> 5 Preloaded Writing Styles
+                          </span>
+                          <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/70 hidden sm:inline">
+                            Tap any style to transform this passage
+                          </span>
+                        </div>
+
+                        {/* 5 Master Style Buttons */}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                          {MASTER_STYLES.map((style) => (
+                            <button
+                              key={style.id}
+                              type="button"
+                              onClick={() => handleOpenRefine(currentChapter.id, p.id, p.text, pIdx, style.id)}
+                              className="group text-left p-2 rounded-lg bg-[var(--color-canvas-linen)] hover:bg-white border border-[var(--color-text-graphite)]/15 hover:border-[var(--color-accent-clay)] transition-all flex flex-col gap-0.5 shadow-sm active:scale-[0.98]"
+                              title={style.description}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs shrink-0">{style.icon}</span>
+                                <span className="font-sans text-[10px] sm:text-[11px] font-medium text-[var(--color-text-ink)] group-hover:text-[var(--color-accent-clay)] transition-colors truncate">
+                                  {style.label}
+                                </span>
+                              </div>
+                              <span className="font-sans text-[8px] text-[var(--color-text-graphite)]/70 truncate">
+                                {style.subtitle}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* Active Inline Editor vs Idle Literary Paragraph */}
                   {isEditing ? (
-                    <div className="relative -mx-3 p-3 rounded-[6px] bg-[var(--color-canvas-stone)]/40 ring-1 ring-[var(--color-accent-clay)]/30 transition-all">
+                    <div className="relative -mx-3 p-3 rounded-[8px] bg-[var(--color-canvas-stone)]/40 ring-1 ring-[var(--color-accent-clay)]/40 transition-all">
                       <textarea
                         defaultValue={p.text}
                         autoFocus
                         rows={Math.max(3, Math.ceil(p.text.length / 55))}
                         onChange={(e) => handleParagraphChange(currentChapter.id, p.id, e.target.value)}
-                        onBlur={() => {
-                          // Keep editing active or close gracefully
-                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Escape') setEditingParagraphId(null);
                         }}
@@ -590,10 +786,10 @@ function ManuscriptEditorContent() {
                   ) : (
                     <div
                       onClick={() => setEditingParagraphId(p.id)}
-                      className={`relative -mx-3 p-3 rounded-[6px] cursor-text transition-all duration-300 hover:bg-[var(--color-canvas-stone)]/30
+                      className={`relative -mx-3 p-3 rounded-[8px] cursor-text transition-all duration-300 hover:bg-[var(--color-canvas-stone)]/30
                         ${p.isModified ? 'border-l-2 border-[var(--color-accent-sage)]' : ''}
                       `}
-                      title="Click anywhere to edit word, sentence, or passage"
+                      title="Click anywhere to edit or refine style"
                     >
                       <p
                         className={`font-serif text-[18px] sm:text-[21px] lg:text-[22px] leading-[2.1] sm:leading-[2.4] text-[var(--color-text-ink)]/90 tracking-normal break-words text-left
@@ -603,10 +799,23 @@ function ManuscriptEditorContent() {
                         {p.text}
                       </p>
 
-                      {/* Subtle hover edit cue */}
-                      <span className="absolute top-3 right-3 opacity-0 group-hover:opacity-40 transition-opacity font-sans text-[10px] tracking-widest uppercase text-[var(--color-text-graphite)] select-none">
-                        ✎ Edit
-                      </span>
+                      {/* Hover Cues: Refine (5 Styles) & Edit */}
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 select-none">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenRefine(currentChapter.id, p.id, p.text, pIdx, 'reflective');
+                          }}
+                          className="py-1 px-2.5 rounded-full bg-[var(--color-canvas-stone)]/90 hover:bg-[var(--color-canvas-stone)] border border-[var(--color-accent-clay)]/40 font-sans text-[9px] tracking-wider uppercase text-[var(--color-accent-clay)] font-medium transition-all shadow-sm active:scale-95 flex items-center gap-1"
+                        >
+                          <span>✨</span>
+                          <span>5 Styles</span>
+                        </button>
+                        <span className="font-sans text-[10px] tracking-wider uppercase text-[var(--color-text-graphite)]/80">
+                          ✎ Edit
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -668,6 +877,215 @@ function ManuscriptEditorContent() {
           </footer>
         </article>
       </div>
+
+      {/* ============================================================
+          LITERARY DIFF & COMPARISON REVIEW MODAL
+          Side-by-Side Original vs. Master Style Revision
+          ============================================================ */}
+      {refineModalOpen && refineTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.25s_ease-out_forwards]"
+        >
+          <div
+            className="w-full max-w-4xl flex flex-col rounded-2xl bg-[var(--color-canvas-linen)] border border-[var(--color-text-graphite)]/20 shadow-2xl overflow-hidden my-auto"
+            style={{ maxHeight: 'min(620px, 78vh)' }}
+          >
+            {/* Modal Top Bar */}
+            <header className="shrink-0 px-5 sm:px-8 py-3.5 sm:py-4 border-b border-[var(--color-text-graphite)]/15 flex items-center justify-between bg-[var(--color-canvas-stone)]/40">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-[var(--color-accent-clay)] font-semibold">
+                    Altheara Editorial Studio
+                  </span>
+                  <span className="text-xs text-[var(--color-text-graphite)]/40">&bull;</span>
+                  <span className="font-sans text-[10px] tracking-wider text-[var(--color-text-graphite)]">
+                    Passage {refineTarget.paragraphIndex + 1}
+                  </span>
+                </div>
+                <h2 className="font-serif text-lg sm:text-xl font-medium text-[var(--color-text-ink)]">
+                  Compare Master Writing Styles
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setRefineModalOpen(false)}
+                className="w-8 h-8 rounded-full border border-[var(--color-text-graphite)]/20 flex items-center justify-center text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] hover:border-[var(--color-text-ink)] transition-colors text-sm focus:outline-none"
+              >
+                &times;
+              </button>
+            </header>
+
+            {/* Five Master Styles Selector Tabs */}
+            <div className="shrink-0 px-4 sm:px-8 py-2.5 sm:py-3 bg-[var(--color-canvas-stone)]/60 border-b border-[var(--color-text-graphite)]/10 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-2 min-w-max">
+                <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)]/70 mr-1">
+                  Styles:
+                </span>
+                {MASTER_STYLES.map((style) => {
+                  const isSelected = selectedStyle === style.id;
+                  return (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => handleSwitchModalStyle(style.id)}
+                      className={`px-3 py-1.5 rounded-full font-sans text-[10px] sm:text-[11px] tracking-wider transition-all flex items-center gap-1.5 focus:outline-none ${
+                        isSelected
+                          ? 'bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] shadow-md font-medium'
+                          : 'bg-[var(--color-canvas-linen)] text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] border border-[var(--color-text-graphite)]/15'
+                      }`}
+                    >
+                      <span>{style.icon}</span>
+                      <span>{style.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Body: Side-by-Side Comparison */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 sm:gap-5">
+              {/* Style Description Banner */}
+              {refineResult && (
+                <div className="p-3.5 rounded-xl bg-[var(--color-canvas-stone)]/40 border border-[var(--color-text-graphite)]/10 flex items-start gap-3">
+                  <span className="text-xl shrink-0 mt-0.5">{refineResult.styleIcon}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-serif font-medium text-sm text-[var(--color-text-ink)]">
+                        {refineResult.styleLabel}
+                      </span>
+                      <span className="font-sans text-[9px] tracking-wider uppercase text-[var(--color-accent-clay)] font-medium">
+                        &bull; {refineResult.styleSubtitle}
+                      </span>
+                    </div>
+                    <p className="font-serif italic text-xs text-[var(--color-text-graphite)] leading-relaxed">
+                      {refineResult.summary}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Side-by-Side Columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                {/* Column 1: Original Manuscript */}
+                <div className="flex flex-col gap-2 p-4 rounded-xl bg-[var(--color-canvas-stone)]/30 border border-[var(--color-text-graphite)]/15">
+                  <div className="flex items-center justify-between pb-2 border-b border-[var(--color-text-graphite)]/10">
+                    <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)]/70 font-medium">
+                      Original Manuscript
+                    </span>
+                    <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/50">
+                      {refineTarget.text.split(/\s+/).filter(Boolean).length} words
+                    </span>
+                  </div>
+                  <p className="font-serif text-[16px] sm:text-[17px] leading-[2.1] text-[var(--color-text-graphite)] italic">
+                    &ldquo;{refineTarget.text}&rdquo;
+                  </p>
+                </div>
+
+                {/* Column 2: Altheara Refinement */}
+                <div className="flex flex-col gap-2 p-4 rounded-xl bg-white border border-[var(--color-accent-clay)]/30 shadow-sm relative">
+                  <div className="flex items-center justify-between pb-2 border-b border-[var(--color-accent-clay)]/20">
+                    <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1.5">
+                      <span>✨</span>
+                      <span>Altheara Revision</span>
+                    </span>
+                    {refineResult && (
+                      <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/60">
+                        {refineResult.revisedText.split(/\s+/).filter(Boolean).length} words
+                      </span>
+                    )}
+                  </div>
+
+                  {isRefining ? (
+                    <div className="min-h-[140px] flex flex-col items-center justify-center gap-3 text-center py-8">
+                      <div className="w-6 h-6 rounded-full border-2 border-[var(--color-accent-clay)] border-t-transparent animate-spin"></div>
+                      <span className="font-serif italic text-xs text-[var(--color-text-graphite)]">
+                        Applying {MASTER_STYLES.find((s) => s.id === selectedStyle)?.label} refinement&hellip;
+                      </span>
+                    </div>
+                  ) : refineError ? (
+                    <div className="min-h-[140px] flex flex-col items-center justify-center gap-2 text-center py-6 text-red-600">
+                      <span className="text-sm">{refineError}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchModalStyle(selectedStyle)}
+                        className="font-sans text-[10px] underline tracking-wider uppercase"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="font-serif text-[17px] sm:text-[18px] leading-[2.2] text-[var(--color-text-ink)]">
+                      {refineResult?.revisedText}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Optional Custom Refinement Note to Editor */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 rounded-xl bg-[var(--color-canvas-stone)]/40 border border-[var(--color-text-graphite)]/15">
+                <input
+                  type="text"
+                  value={customInstruction}
+                  onChange={(e) => setCustomInstruction(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleApplyCustomInstruction();
+                  }}
+                  placeholder="Or give a custom note (e.g. 'Make this more subtle' or 'Focus on family')..."
+                  className="flex-1 bg-transparent border-0 font-serif text-xs sm:text-sm text-[var(--color-text-ink)] placeholder:text-[var(--color-text-graphite)]/50 focus:outline-none focus:ring-0 px-1 py-1"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCustomInstruction}
+                  disabled={!customInstruction.trim() || isRefining}
+                  className="py-1 px-3 rounded-lg bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[9px] tracking-wider uppercase disabled:opacity-40 transition-opacity whitespace-nowrap self-end sm:self-auto"
+                >
+                  Apply Note
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Action Footer */}
+            <footer className="shrink-0 px-5 sm:px-8 py-3.5 sm:py-4 border-t border-[var(--color-text-graphite)]/15 bg-[var(--color-canvas-stone)]/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setRefineModalOpen(false)}
+                className="w-full sm:w-auto font-sans text-[10px] sm:text-[11px] tracking-[0.16em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors py-2 px-3 order-3 sm:order-1"
+              >
+                Keep Original
+              </button>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
+                {/* Try Another Style Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentIdx = MASTER_STYLES.findIndex((s) => s.id === selectedStyle);
+                    const nextStyle = MASTER_STYLES[(currentIdx + 1) % MASTER_STYLES.length];
+                    handleSwitchModalStyle(nextStyle.id);
+                  }}
+                  disabled={isRefining}
+                  className="flex-1 sm:flex-initial py-2 sm:py-2.5 px-4 rounded-full border border-[var(--color-text-graphite)]/30 hover:border-[var(--color-text-ink)] text-[var(--color-text-ink)] font-sans text-[10px] sm:text-[11px] tracking-[0.15em] uppercase transition-all active:scale-[0.98] disabled:opacity-40"
+                >
+                  Try Another Style
+                </button>
+
+                {/* Accept & Apply Button */}
+                <button
+                  type="button"
+                  onClick={handleApplyRefinement}
+                  disabled={!refineResult || isRefining}
+                  className="flex-1 sm:flex-initial py-2 sm:py-2.5 px-5 sm:px-6 rounded-full bg-[var(--color-text-ink)] hover:bg-[var(--color-text-ink)]/90 text-[var(--color-canvas-linen)] font-sans text-[10px] sm:text-[11px] tracking-[0.18em] uppercase transition-all shadow-md active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-1.5"
+                >
+                  <span>Accept &amp; Apply</span>
+                </button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -690,4 +1108,3 @@ export default function FullManuscriptEditor() {
     </Suspense>
   );
 }
-
