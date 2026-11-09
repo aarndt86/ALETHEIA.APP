@@ -28,6 +28,7 @@ function ManuscriptEditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const volumeId = searchParams.get('volumeId') || 'vol-2025';
+  const draftId = searchParams.get('draftId');
   const initialEditMode = searchParams.get('edit') === '1';
   const initialTocOpen = searchParams.get('toc') === '1';
   const initialStyleModal = searchParams.get('styleModal') === '1';
@@ -68,7 +69,10 @@ function ManuscriptEditorContent() {
     async function loadDraft() {
       try {
         setSaveStatus('saving');
-        const res = await fetch(`/api/volume/draft?volumeId=${volumeId}`);
+        const fetchUrl = draftId
+          ? `/api/volume/draft?volumeId=${volumeId}&draftId=${draftId}`
+          : `/api/volume/draft?volumeId=${volumeId}`;
+        const res = await fetch(fetchUrl);
         if (!res.ok) throw new Error('Failed to load draft');
         const data = await res.json();
         if (isMounted && data.draft) {
@@ -98,7 +102,7 @@ function ManuscriptEditorContent() {
     return () => {
       isMounted = false;
     };
-  }, [volumeId, initialEditMode]);
+  }, [volumeId, draftId, initialEditMode]);
 
   // Save function to server
   const saveDraftToServer = useCallback(async (draftToSave: VolumeDraft) => {
@@ -115,7 +119,8 @@ function ManuscriptEditorContent() {
       setLastSavedTimeText('Just now');
       // Sync local storage as reliable secondary backup
       try {
-        localStorage.setItem(`altheara_draft_${draftToSave.sourceVolumeId}`, JSON.stringify(data.draft));
+        const storageKey = draftToSave.draftId || draftToSave.sourceVolumeId;
+        localStorage.setItem(`altheara_draft_${storageKey}`, JSON.stringify(data.draft));
       } catch {
         // storage fallback
       }
@@ -448,7 +453,7 @@ function ManuscriptEditorContent() {
             {draft.bookTitle} &bull; {draft.year}
           </span>
           <span className="font-sans text-[9px] tracking-[0.25em] uppercase text-[var(--color-text-graphite)]/60">
-            Private Working Edition
+            {draft.clonedFromVersion ? `Branching from Edition v${draft.clonedFromVersion}` : 'Private Working Edition'}
           </span>
         </div>
 

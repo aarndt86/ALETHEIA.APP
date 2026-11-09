@@ -55,6 +55,8 @@ export interface VolumeDraft {
   lastSavedAt: string;
   version: number;
   isDirty?: boolean;
+  clonedFromEditionId?: string; // Provenance: ID of historical edition branched from
+  clonedFromVersion?: number;   // Provenance: Version number branched from (e.g. 1)
 }
 
 // --- ANNUAL SIGNATURE LINEN DESIGN SYSTEM ---
@@ -163,6 +165,8 @@ export interface PreservedVolumeEdition {
   chapters: ManuscriptChapter[];
   authenticRecording?: AuthenticRecordingAsset | null;
   preservationFormats: PreservationFormatConfig;
+  clonedFromEditionId?: string; // Provenance: ID of historical edition branched from
+  clonedFromVersion?: number;   // Provenance: Version number branched from (e.g. 1)
 }
 
 // --- DIGITAL LIBRARY PRESERVED BOOK AGGREGATION ---

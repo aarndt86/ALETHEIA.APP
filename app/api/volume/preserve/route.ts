@@ -152,7 +152,9 @@ export async function POST(request: Request) {
       // Deep clone chapters to guarantee full immutability
       chapters: JSON.parse(JSON.stringify(draft.chapters)),
       authenticRecording: authenticRecording ? { ...authenticRecording } : null,
-      preservationFormats: formatConfig
+      preservationFormats: formatConfig,
+      clonedFromEditionId: draft.clonedFromEditionId,
+      clonedFromVersion: draft.clonedFromVersion
     };
 
     // 7. Atomic & Safe Disk Persistence (Item 1 & Safeguard 1)

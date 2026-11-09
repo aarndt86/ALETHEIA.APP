@@ -27,6 +27,31 @@ export default function BookDetailView({
 }: BookDetailViewProps) {
   const router = useRouter();
   const [showNewEditionModal, setShowNewEditionModal] = useState(false);
+  const [isCloningEdition, setIsCloningEdition] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+
+  const handleConfirmNewEdition = async () => {
+    try {
+      setIsCloningEdition(true);
+      setCloneError(null);
+      const res = await fetch('/api/volume/draft/from-edition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ editionId: selectedEdition.editionId }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to branch new edition draft from vault.');
+      }
+      const data = await res.json();
+      setShowNewEditionModal(false);
+      setIsCloningEdition(false);
+      router.push(`/profile/volume-editor/editor?volumeId=${book.bookId}&draftId=${data.draftId}`);
+    } catch (err: unknown) {
+      setIsCloningEdition(false);
+      setCloneError(err instanceof Error ? err.message : 'Error creating draft');
+    }
+  };
 
   // Derive cover styling corresponding to this specific selected edition
   const isSignatureLinen = Boolean(selectedEdition.preservationFormats?.signatureLinen?.configured);
@@ -449,30 +474,38 @@ export default function BookDetailView({
             <h3 className="font-serif text-2xl text-[var(--color-text-ink)]">
               Create a New Edition
             </h3>
+            <span className="font-sans text-[10px] tracking-wider uppercase text-[var(--color-accent-clay)] font-semibold">
+              Branching from Edition v{selectedEdition.version} &bull; &ldquo;{selectedEdition.bookTitle}&rdquo;
+            </span>
             <p className="font-serif italic text-sm text-[var(--color-text-graphite)] leading-relaxed">
               Opening the Volume Editor creates a <strong>separate, editable working draft</strong> cloned from this volume.
             </p>
             <p className="font-serif text-xs text-[var(--color-text-graphite)]/80 leading-relaxed border-t border-[var(--color-text-graphite)]/15 pt-3">
-              Your preserved Library editions (v1, v2, v3) will remain <strong>completely untouched and immutable</strong> in the vault. A new version is sealed only when you explicitly finish preservation again.
+              Your preserved Library editions (v1, v2, v3) and existing unfinished drafts will remain <strong>completely untouched and immutable</strong> in the vault. A new version is sealed only when you explicitly finish preservation again.
             </p>
+
+            {cloneError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-sans">
+                {cloneError}
+              </div>
+            )}
 
             <div className="flex items-center justify-center gap-3 mt-2">
               <button
                 type="button"
+                disabled={isCloningEdition}
                 onClick={() => setShowNewEditionModal(false)}
-                className="py-2 px-5 rounded-full border border-[var(--color-text-graphite)]/25 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] font-sans text-[10px] tracking-wider uppercase transition-colors"
+                className="py-2 px-5 rounded-full border border-[var(--color-text-graphite)]/25 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] font-sans text-[10px] tracking-wider uppercase transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowNewEditionModal(false);
-                  router.push(`/profile/volume-editor/editor?volumeId=${book.bookId}`);
-                }}
-                className="py-2 px-5 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[10px] tracking-wider uppercase hover:bg-[var(--color-text-ink)]/90 transition-colors"
+                disabled={isCloningEdition}
+                onClick={handleConfirmNewEdition}
+                className="py-2 px-5 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[10px] tracking-wider uppercase hover:bg-[var(--color-text-ink)]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
-                Open Volume Editor &rarr;
+                {isCloningEdition ? 'Branching Edition...' : 'Open Volume Editor \u2192'}
               </button>
             </div>
           </div>

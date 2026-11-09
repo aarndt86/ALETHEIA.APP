@@ -26,7 +26,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const editionId = searchParams.get('editionId');
     const bookId = searchParams.get('bookId');
-    const includeDevFixtures = searchParams.get('includeDevFixtures') === 'true';
 
     // 2. Locate orders directory in authenticated member's vault
     const ordersDir = getMemberOrdersDir(member.id);
@@ -49,8 +48,8 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // Requirement 3 & 7: Development fixtures must be excluded from normal member views
-        if (order.isDevFixture && !includeDevFixtures) {
+        // Requirement 5: Development fixtures are strictly excluded from all member API views
+        if (order.isDevFixture) {
           continue;
         }
 
