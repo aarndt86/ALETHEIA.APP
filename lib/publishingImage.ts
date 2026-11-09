@@ -1,12 +1,19 @@
 // ============================================================
 // ALTHEARA LEGACY PUBLISHER — IMAGE ASSET VALIDATION & DECODING
 // ============================================================
-// Zero external binary dependencies. Native buffer header decoding.
+// Native Node.js buffer header decoding and stream integrity validation.
 // Enforces 10MB max, dimension bounds (400x560 to 6000x8400),
-// and strict magic-byte validation for JPEG, PNG, and WebP.
-// Protects against malformed images and decompression bombs.
+// magic-byte validation, and compressed stream verification (zlib).
+//
+// ARCHITECTURAL NOTE ON DECODING DEPTH:
+// This module performs binary container validation, header decoding,
+// and compressed chunk integrity checks (including PNG IDAT zlib inflation).
+// It does NOT perform full uncompressed RGBA raster pixel mapping into RAM,
+// which in production would require native binaries (such as libvips/sharp).
 // Zero emojis, pure literary engineering.
 // ============================================================
+
+import zlib from 'zlib';
 
 export const MIN_IMAGE_WIDTH = 400;
 export const MIN_IMAGE_HEIGHT = 560;
@@ -210,6 +217,39 @@ export function validateImageBuffer(buffer: Buffer): ImageValidationResult {
       error: `Image dimensions (${meta.width} x ${meta.height} px) exceed maximum allowable bounds of ${MAX_IMAGE_WIDTH} x ${MAX_IMAGE_HEIGHT} px.`,
       statusCode: 400
     };
+  }
+
+  // Deeper stream verification for PNG: inflate IDAT chunks to detect truncated or corrupted compressed payloads
+  if (meta.format === 'png') {
+    try {
+      let offset = 8;
+      const idatChunks: Buffer[] = [];
+      while (offset < buffer.length) {
+        if (offset + 8 > buffer.length) break;
+        const length = buffer.readUInt32BE(offset);
+        const type = buffer.toString('ascii', offset + 4, offset + 8);
+        offset += 8;
+        if (type === 'IDAT') {
+          idatChunks.push(buffer.subarray(offset, offset + length));
+        }
+        offset += length + 4;
+      }
+      if (idatChunks.length === 0) {
+        return {
+          valid: false,
+          error: 'Malformed PNG image. No compressed image data (IDAT chunks) found.',
+          statusCode: 400
+        };
+      }
+      const combinedIdat = Buffer.concat(idatChunks);
+      zlib.inflateSync(combinedIdat);
+    } catch (err: unknown) {
+      return {
+        valid: false,
+        error: `Malformed PNG image stream. Compressed image data is corrupted: ${err instanceof Error ? err.message : 'decompression failed'}.`,
+        statusCode: 400
+      };
+    }
   }
 
   return {

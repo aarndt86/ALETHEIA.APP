@@ -47,6 +47,7 @@ function ManuscriptEditorContent() {
   const [editingTitleChapterId, setEditingTitleChapterId] = useState<string | null>(null);
   const [activeStyleTabParagraphId, setActiveStyleTabParagraphId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [lastSavedTimeText, setLastSavedTimeText] = useState('Just now');
   const [mobileTocOpen, setMobileTocOpen] = useState(initialTocOpen);
   const [isExiting, setIsExiting] = useState(false);
@@ -156,9 +157,10 @@ function ManuscriptEditorContent() {
   }, [volumeId, draftId, pubDraftId, isPublishingMode, initialEditMode]);
 
   // Save function to server
-  const saveDraftToServer = useCallback(async (draftToSave: VolumeDraft) => {
+  const saveDraftToServer = useCallback(async (draftToSave: VolumeDraft): Promise<boolean> => {
     try {
       setSaveStatus('saving');
+      setSaveErrorMessage(null);
 
       // STRICT REPOSITORY ISOLATION:
       // When in publishing mode, saving sends EXCLUSIVELY to /api/volume/publishing/draft.
@@ -176,17 +178,21 @@ function ManuscriptEditorContent() {
             }
           }),
         });
-        if (!res.ok) throw new Error('Publishing save failed');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Publishing save failed (HTTP ${res.status}).`);
+        }
         const data = await res.json();
         setSaveStatus('saved');
         setLastSavedTimeText('Just now');
+        setSaveErrorMessage(null);
         // STRICT LOCALSTORAGE ISOLATION (Requirement 4)
         try {
           localStorage.setItem(`altheara_pub_draft_${pubDraftId}`, JSON.stringify(data.draft));
         } catch {
           // storage fallback
         }
-        return;
+        return true;
       }
 
       const res = await fetch('/api/volume/draft', {
@@ -194,10 +200,14 @@ function ManuscriptEditorContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draftToSave),
       });
-      if (!res.ok) throw new Error('Save failed');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Draft save failed (HTTP ${res.status}).`);
+      }
       const data = await res.json();
       setSaveStatus('saved');
       setLastSavedTimeText('Just now');
+      setSaveErrorMessage(null);
       // Sync local storage as reliable secondary backup
       try {
         const storageKey = draftToSave.draftId || draftToSave.sourceVolumeId;
@@ -205,9 +215,12 @@ function ManuscriptEditorContent() {
       } catch {
         // storage fallback
       }
-    } catch (err) {
+      return true;
+    } catch (err: unknown) {
       console.error('Save error:', err);
       setSaveStatus('error');
+      setSaveErrorMessage(err instanceof Error ? err.message : 'Unable to save draft changes to your vault.');
+      return false;
     }
   }, [isPublishingMode, pubDraftId]);
 
@@ -486,8 +499,13 @@ function ManuscriptEditorContent() {
 
   // Handle Proceed to Bookstore Image in Publishing Mode (Phase LP2B)
   const handleProceedToBookstoreImage = async () => {
-    if (draft && saveStatus === 'dirty') {
-      await saveDraftToServer(draft);
+    // If dirty or if previous save failed, enforce safe save before navigating
+    if (draft && (saveStatus === 'dirty' || saveStatus === 'error')) {
+      const ok = await saveDraftToServer(draft);
+      if (!ok) {
+        // Halt navigation and keep member in editor with actionable error banner
+        return;
+      }
     }
     setIsExiting(true);
     setTimeout(() => {
@@ -581,8 +599,8 @@ function ManuscriptEditorContent() {
             )}
             {saveStatus === 'error' && (
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                <span>Paused</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                <span className="text-red-600 font-medium">Save failed</span>
               </>
             )}
           </div>
@@ -619,6 +637,27 @@ function ManuscriptEditorContent() {
           )}
         </div>
       </nav>
+
+      {/* Actionable Autosave Error Notification Banner */}
+      {saveErrorMessage && (
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pt-4">
+          <div className="p-3.5 sm:p-4 rounded-xl bg-red-50/90 border border-red-200 text-red-900 text-xs sm:text-sm font-sans flex items-start sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold text-red-950 uppercase tracking-wider text-[10px]">
+                Autosave Error &bull; Navigation Paused
+              </span>
+              <span>{saveErrorMessage} Please retry saving before proceeding to Bookstore Image.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => draft && saveDraftToServer(draft)}
+              className="py-1.5 px-4 rounded-full bg-red-800 text-white font-sans text-xs tracking-[0.14em] uppercase hover:bg-red-900 transition-colors whitespace-nowrap focus:outline-none shrink-0"
+            >
+              Retry Save
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================
           MAIN STUDIO WORKSPACE
