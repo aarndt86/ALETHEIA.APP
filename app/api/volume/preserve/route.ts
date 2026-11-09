@@ -33,7 +33,7 @@ interface PreservePayload {
 
 export async function POST(request: Request) {
   try {
-    // 1. Authenticate member from session (Safeguard 2)
+    // 1. Authenticate member from genuine session (Safeguard 2 & Requirement 2)
     const member = await getAuthenticatedMember(request);
     if (!member) {
       return NextResponse.json(
@@ -65,9 +65,10 @@ export async function POST(request: Request) {
     const editionsDir = getMemberEditionsDir(member.id);
 
     // 3. Scan existing editions for this source volume to determine the next immutable version
+    // Synchronous filesystem scan prevents race conditions in isolated storage
     let highestVersion = 0;
     try {
-      const existingFiles = fs.readdirSync(editionsDir).filter(f => f.endsWith('.json'));
+      const existingFiles = fs.readdirSync(editionsDir).filter(f => f.endsWith('.json') && !f.startsWith('.'));
       for (const file of existingFiles) {
         try {
           const raw = fs.readFileSync(path.join(editionsDir, file), 'utf-8');
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
             }
           }
         } catch {
-          // ignore unparseable files
+          // ignore unparseable or transient files
         }
       }
     } catch (readDirErr) {
@@ -148,18 +149,48 @@ export async function POST(request: Request) {
       authorName: draft.authorName || member.name,
       totalChapters: draft.chapters.length,
       totalWords,
-      // Deep clone chapters to ensure immutability
+      // Deep clone chapters to guarantee full immutability
       chapters: JSON.parse(JSON.stringify(draft.chapters)),
       authenticRecording: authenticRecording ? { ...authenticRecording } : null,
       preservationFormats: formatConfig
     };
 
-    // 7. Persist to disk (Safeguard 1: No in-memory fallback!)
+    // 7. Atomic & Safe Disk Persistence (Item 1 & Safeguard 1)
     const targetFilePath = path.join(editionsDir, `${editionId}.json`);
     
+    // Strict immutability guarantee: Never overwrite an existing edition file!
+    if (fs.existsSync(targetFilePath)) {
+      return NextResponse.json(
+        { 
+          error: `Immutability constraint violation: Edition ${editionId} already exists in vault and cannot be overwritten.`,
+          success: false 
+        },
+        { status: 409 }
+      );
+    }
+
+    // Atomic staging write via temporary file
+    const tmpFilePath = path.join(editionsDir, `.${editionId}.${Date.now()}.tmp`);
+    
     try {
-      fs.writeFileSync(targetFilePath, JSON.stringify(immutableEdition, null, 2), 'utf-8');
+      // Write to isolated temporary staging file
+      fs.writeFileSync(tmpFilePath, JSON.stringify(immutableEdition, null, 2), {
+        encoding: 'utf-8',
+        flag: 'wx'
+      });
+
+      // Verify non-empty before committing
+      const stat = fs.statSync(tmpFilePath);
+      if (stat.size === 0) {
+        throw new Error('Staging file verification failed: zero bytes written.');
+      }
+
+      // Atomic rename commits the edition file in one atomic OS operation
+      fs.renameSync(tmpFilePath, targetFilePath);
     } catch (writeErr) {
+      if (fs.existsSync(tmpFilePath)) {
+        try { fs.unlinkSync(tmpFilePath); } catch {}
+      }
       console.error('Fatal vault write error:', writeErr);
       return NextResponse.json(
         { 
@@ -170,7 +201,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Explicit disk verification
+    // Explicit final disk verification (Safeguard 1)
     if (!fs.existsSync(targetFilePath) || fs.statSync(targetFilePath).size === 0) {
       return NextResponse.json(
         { 

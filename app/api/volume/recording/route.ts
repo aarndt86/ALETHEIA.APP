@@ -48,6 +48,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // 2. Pre-flight check content-length header (Safeguard 3 & Requirement 2)
+    const contentLength = Number(request.headers.get('content-length') || 0);
+    if (contentLength > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `Media recording exceeds limit of 50MB. (Provided: ${(contentLength / (1024 * 1024)).toFixed(1)}MB)` },
+        { status: 413 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('mediaFile') as File | null;
     const mediaType = (formData.get('mediaType') as string) || 'voice';
