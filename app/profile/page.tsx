@@ -30,8 +30,38 @@ export default function ProfileScreen() {
       </header>
 
       {/* Settings List */}
-      <div className="w-full max-w-sm flex flex-col gap-12 mt-8 z-10 opacity-0 animate-[fadeInUp_0.8s_ease-out_forwards]" style={{ animationDelay: '0.2s' }}>
+      <div className="w-full max-w-sm flex flex-col gap-10 mt-6 z-10 opacity-0 animate-[fadeInUp_0.8s_ease-out_forwards]" style={{ animationDelay: '0.2s' }}>
         
+        {/* Volume Creation & Editor Entry */}
+        <div 
+          onClick={() => {
+            setIsTransitioning(true);
+            setTimeout(() => router.push('/profile/volume-editor'), 500);
+          }}
+          className="group flex flex-col gap-3 cursor-pointer select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              setIsTransitioning(true);
+              setTimeout(() => router.push('/profile/volume-editor'), 500);
+            }
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)] group-hover:text-[var(--color-text-ink)]/80 transition-colors">
+              Volume Creation &amp; Editor
+            </span>
+            <span className="font-sans text-xs tracking-widest text-[var(--color-text-graphite)]/40 group-hover:text-[var(--color-text-ink)] group-hover:translate-x-0.5 transition-all">
+              &rarr;
+            </span>
+          </div>
+          <span className="font-sans text-xs text-[var(--color-text-graphite)]/70 group-hover:text-[var(--color-text-graphite)] transition-colors">
+            Turn your year into a book worth keeping.
+          </span>
+          <div className="w-full h-[1px] bg-[var(--color-text-graphite)]/15 mt-2 group-hover:bg-[var(--color-accent-clay)]/40 transition-colors"></div>
+        </div>
+
         <div className="flex flex-col gap-4">
           <span className="font-serif text-xl sm:text-2xl text-[var(--color-text-ink)]">Typography Size</span>
           <span className="font-sans text-xs text-[var(--color-text-graphite)] opacity-50">Medium (Default)</span>
