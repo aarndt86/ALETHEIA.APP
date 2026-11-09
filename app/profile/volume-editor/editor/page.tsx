@@ -30,12 +30,14 @@ function ManuscriptEditorContent() {
   const initialEditMode = searchParams.get('edit') === '1';
   const initialTocOpen = searchParams.get('toc') === '1';
   const initialStyleModal = searchParams.get('styleModal') === '1';
+  const initialStyleTab = searchParams.get('styleTab') === '1';
   const initialStyleParam = (searchParams.get('style') as MasterStyleId) || 'warm';
 
   const [draft, setDraft] = useState<VolumeDraft | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string>('');
   const [editingParagraphId, setEditingParagraphId] = useState<string | null>(null);
   const [editingTitleChapterId, setEditingTitleChapterId] = useState<string | null>(null);
+  const [activeStyleTabParagraphId, setActiveStyleTabParagraphId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [lastSavedTimeText, setLastSavedTimeText] = useState('Just now');
   const [mobileTocOpen, setMobileTocOpen] = useState(initialTocOpen);
@@ -69,6 +71,9 @@ function ManuscriptEditorContent() {
             setActiveChapterId(data.draft.chapters[0].id);
             if (initialEditMode && data.draft.chapters[0].paragraphs && data.draft.chapters[0].paragraphs.length > 0) {
               setEditingParagraphId(data.draft.chapters[0].paragraphs[0].id);
+            }
+            if (initialStyleTab && data.draft.chapters[0].paragraphs && data.draft.chapters[0].paragraphs.length > 0) {
+              setActiveStyleTabParagraphId(data.draft.chapters[0].paragraphs[0].id);
             }
           }
           setSaveStatus('saved');
@@ -686,82 +691,123 @@ function ManuscriptEditorContent() {
               return (
                 <div key={p.id} className="group relative flex flex-col">
                   {/* ========================================================
-                      FIVE PRELOADED MASTER STYLES BAR (When Editing)
-                      Visible immediately above active paragraph
+                      TOP ACTION BAR (When In Manual Edit Mode)
                       ======================================================== */}
                   {isEditing && (
                     <div className="flex flex-col gap-2.5 mb-3 select-none animate-[fadeIn_0.2s_ease-out_forwards]">
-                      {/* Top Action Row */}
-                      <div className="flex items-center justify-between px-1">
-                        <span className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1.5">
-                          <span>Passage {pIdx + 1}</span>
+                      {/* Top Action Row: Title, Writing Style tab, Insert Passage, and Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold">
+                            Passage {pIdx + 1}
+                          </span>
+                          <span className="font-serif italic font-normal text-[11px] text-[var(--color-text-graphite)]/70">
+                            &bull; manual editing
+                          </span>
                           {p.isModified && (
                             <span className="text-[9px] font-normal text-[var(--color-accent-sage)] bg-[var(--color-accent-sage)]/10 px-1.5 py-0.5 rounded">
                               Edited
                             </span>
                           )}
-                        </span>
-                        <div className="flex items-center gap-3">
+                        </div>
+
+                        {/* Companion Buttons: Writing Style Tab + Insert Passage + Done */}
+                        <div className="flex items-center gap-2">
+                          {/* Writing Style Tab Button — Same Pill Style */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveStyleTabParagraphId(activeStyleTabParagraphId === p.id ? null : p.id)
+                            }
+                            className={`py-1 px-3.5 rounded-full border font-sans text-[9px] tracking-[0.16em] uppercase transition-all flex items-center gap-1.5 focus:outline-none active:scale-95 shadow-sm ${
+                              activeStyleTabParagraphId === p.id
+                                ? 'bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] border-[var(--color-text-ink)] font-medium'
+                                : 'bg-[var(--color-canvas-stone)]/90 hover:bg-[var(--color-canvas-stone)] border-[var(--color-text-graphite)]/25 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)]'
+                            }`}
+                          >
+                            <span>✨</span>
+                            <span>Writing Style</span>
+                            <span className="text-[8px] opacity-70">
+                              {activeStyleTabParagraphId === p.id ? '▲' : '▾'}
+                            </span>
+                          </button>
+
+                          {/* Insert Passage Button — Same Pill Style */}
+                          <button
+                            type="button"
+                            onClick={() => handleAddParagraph(currentChapter.id, pIdx)}
+                            className="py-1 px-3.5 rounded-full bg-[var(--color-canvas-stone)]/90 hover:bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/25 font-sans text-[9px] tracking-[0.16em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors focus:outline-none active:scale-95 shadow-sm flex items-center gap-1"
+                          >
+                            <span>+</span>
+                            <span>Insert Passage</span>
+                          </button>
+
                           {p.isModified && (
                             <button
                               type="button"
                               onClick={() => handleRevertParagraph(currentChapter.id, p.id)}
-                              className="font-sans text-[10px] tracking-wider text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] underline transition-colors"
+                              className="font-sans text-[10px] tracking-wider text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] underline transition-colors px-1"
                             >
-                              Revert to original
+                              Revert
                             </button>
                           )}
+
                           <button
                             type="button"
                             onClick={() => handleDeleteParagraph(currentChapter.id, p.id)}
-                            className="font-sans text-[10px] tracking-wider text-red-500/70 hover:text-red-700 transition-colors"
+                            className="font-sans text-[10px] tracking-wider text-red-500/70 hover:text-red-700 transition-colors px-1"
                           >
                             Remove
                           </button>
+
                           <button
                             type="button"
-                            onClick={() => setEditingParagraphId(null)}
-                            className="py-0.5 px-3 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[9px] tracking-wider uppercase transition-transform active:scale-95"
+                            onClick={() => {
+                              setEditingParagraphId(null);
+                              setActiveStyleTabParagraphId(null);
+                            }}
+                            className="py-1 px-3.5 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[9px] tracking-wider uppercase transition-transform active:scale-95 shadow-sm"
                           >
                             Done
                           </button>
                         </div>
                       </div>
 
-                      {/* THE FIVE PRELOADED OPTIONS PANEL */}
-                      <div className="p-3 rounded-xl bg-[var(--color-canvas-stone)]/70 border border-[var(--color-text-graphite)]/15 shadow-sm">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-sans text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1">
-                            <span>✨</span> 5 Preloaded Writing Styles
-                          </span>
-                          <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/70 hidden sm:inline">
-                            Tap any style to transform this passage
-                          </span>
-                        </div>
+                      {/* EXPANDABLE FIVE PRESET WRITING OPTIONS (When Tab Opened In Edit Mode) */}
+                      {activeStyleTabParagraphId === p.id && (
+                        <div className="p-3.5 rounded-xl bg-[var(--color-canvas-stone)]/80 border border-[var(--color-text-graphite)]/15 shadow-sm flex flex-col gap-2.5 animate-[fadeIn_0.2s_ease-out_forwards]">
+                          <div className="flex items-center justify-between px-1">
+                            <span className="font-sans text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1">
+                              <span>✨</span> Five Preset Writing Options
+                            </span>
+                            <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/70 hidden sm:inline">
+                              Change from how Altheara initially wrote this passage
+                            </span>
+                          </div>
 
-                        {/* 5 Master Style Buttons */}
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                          {MASTER_STYLES.map((style) => (
-                            <button
-                              key={style.id}
-                              type="button"
-                              onClick={() => handleOpenRefine(currentChapter.id, p.id, p.text, pIdx, style.id)}
-                              className="group text-left p-2 rounded-lg bg-[var(--color-canvas-linen)] hover:bg-white border border-[var(--color-text-graphite)]/15 hover:border-[var(--color-accent-clay)] transition-all flex flex-col gap-0.5 shadow-sm active:scale-[0.98]"
-                              title={style.description}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs shrink-0">{style.icon}</span>
-                                <span className="font-sans text-[10px] sm:text-[11px] font-medium text-[var(--color-text-ink)] group-hover:text-[var(--color-accent-clay)] transition-colors truncate">
-                                  {style.label}
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            {MASTER_STYLES.map((style) => (
+                              <button
+                                key={style.id}
+                                type="button"
+                                onClick={() => handleOpenRefine(currentChapter.id, p.id, p.text, pIdx, style.id)}
+                                className="group text-left p-2.5 rounded-lg bg-[var(--color-canvas-linen)] hover:bg-white border border-[var(--color-text-graphite)]/15 hover:border-[var(--color-accent-clay)] transition-all flex flex-col gap-0.5 shadow-sm active:scale-[0.98]"
+                                title={style.description}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs shrink-0">{style.icon}</span>
+                                  <span className="font-sans text-[10px] sm:text-[11px] font-medium text-[var(--color-text-ink)] group-hover:text-[var(--color-accent-clay)] transition-colors truncate">
+                                    {style.label}
+                                  </span>
+                                </div>
+                                <span className="font-sans text-[8px] text-[var(--color-text-graphite)]/70 truncate">
+                                  {style.subtitle}
                                 </span>
-                              </div>
-                              <span className="font-sans text-[8px] text-[var(--color-text-graphite)]/70 truncate">
-                                {style.subtitle}
-                              </span>
-                            </button>
-                          ))}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
 
@@ -779,7 +825,7 @@ function ManuscriptEditorContent() {
                         className="w-full bg-transparent resize-y outline-none font-serif text-[19px] sm:text-[21px] lg:text-[22px] leading-[2.2] sm:leading-[2.4] text-[var(--color-text-ink)] p-0 m-0 border-0 focus:ring-0 focus:outline-none"
                       />
                       <div className="mt-2 flex justify-between items-center text-[10px] font-sans text-[var(--color-text-graphite)]/60 select-none">
-                        <span>Click outside or tap Done when finished</span>
+                        <span>Click outside or tap Done when finished manual editing</span>
                         <span>{p.text.split(/\s+/).filter(Boolean).length} words</span>
                       </div>
                     </div>
@@ -789,7 +835,7 @@ function ManuscriptEditorContent() {
                       className={`relative -mx-3 p-3 rounded-[8px] cursor-text transition-all duration-300 hover:bg-[var(--color-canvas-stone)]/30
                         ${p.isModified ? 'border-l-2 border-[var(--color-accent-sage)]' : ''}
                       `}
-                      title="Click anywhere to edit or refine style"
+                      title="Click to edit manually, or use the buttons below to change writing style or insert a passage"
                     >
                       <p
                         className={`font-serif text-[18px] sm:text-[21px] lg:text-[22px] leading-[2.1] sm:leading-[2.4] text-[var(--color-text-ink)]/90 tracking-normal break-words text-left
@@ -799,35 +845,94 @@ function ManuscriptEditorContent() {
                         {p.text}
                       </p>
 
-                      {/* Hover Cues: Refine (5 Styles) & Edit */}
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 select-none">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenRefine(currentChapter.id, p.id, p.text, pIdx, 'reflective');
-                          }}
-                          className="py-1 px-2.5 rounded-full bg-[var(--color-canvas-stone)]/90 hover:bg-[var(--color-canvas-stone)] border border-[var(--color-accent-clay)]/40 font-sans text-[9px] tracking-wider uppercase text-[var(--color-accent-clay)] font-medium transition-all shadow-sm active:scale-95 flex items-center gap-1"
-                        >
-                          <span>✨</span>
-                          <span>5 Styles</span>
-                        </button>
-                        <span className="font-sans text-[10px] tracking-wider uppercase text-[var(--color-text-graphite)]/80">
-                          ✎ Edit
-                        </span>
-                      </div>
+                      {/* Subtle hover cue for manual editing */}
+                      <span className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity font-sans text-[10px] tracking-widest uppercase text-[var(--color-text-graphite)] select-none">
+                        ✎ Click to Edit
+                      </span>
                     </div>
                   )}
 
-                  {/* Insert Passage Divider Button (+ between paragraphs) */}
-                  <div className="w-full flex justify-center py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 select-none">
-                    <button
-                      type="button"
-                      onClick={() => handleAddParagraph(currentChapter.id, pIdx)}
-                      className="py-1 px-3 rounded-full bg-[var(--color-canvas-stone)]/80 hover:bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 font-sans text-[9px] tracking-[0.18em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors focus:outline-none"
-                    >
-                      + Insert Passage
-                    </button>
+                  {/* ========================================================
+                      COMPANION BUTTONS: Writing Style Tab + Insert Passage
+                      Using the exact same clean pill button style
+                      ======================================================== */}
+                  <div className="w-full flex flex-col items-center py-2.5 select-none">
+                    <div className="flex items-center gap-2">
+                      {/* Writing Style Tab Button */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveStyleTabParagraphId(activeStyleTabParagraphId === p.id ? null : p.id)
+                        }
+                        className={`py-1 px-3.5 rounded-full border font-sans text-[9px] tracking-[0.16em] uppercase transition-all flex items-center gap-1.5 focus:outline-none active:scale-95 shadow-sm ${
+                          activeStyleTabParagraphId === p.id
+                            ? 'bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] border-[var(--color-text-ink)] font-medium'
+                            : 'bg-[var(--color-canvas-stone)]/80 hover:bg-[var(--color-canvas-stone)] border-[var(--color-text-graphite)]/20 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)]'
+                        }`}
+                      >
+                        <span>✨</span>
+                        <span>Writing Style</span>
+                        <span className="text-[8px] opacity-70">
+                          {activeStyleTabParagraphId === p.id ? '▲' : '▾'}
+                        </span>
+                      </button>
+
+                      {/* + Insert Passage Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleAddParagraph(currentChapter.id, pIdx)}
+                        className="py-1 px-3.5 rounded-full bg-[var(--color-canvas-stone)]/80 hover:bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 font-sans text-[9px] tracking-[0.16em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors focus:outline-none active:scale-95 shadow-sm flex items-center gap-1"
+                      >
+                        <span>+</span>
+                        <span>Insert Passage</span>
+                      </button>
+                    </div>
+
+                    {/* Expandable 5 Preset Options (When Writing Style tab is toggled outside manual edit) */}
+                    {!isEditing && activeStyleTabParagraphId === p.id && (
+                      <div className="w-full max-w-2xl mt-3 p-3.5 rounded-xl bg-[var(--color-canvas-stone)]/90 border border-[var(--color-text-graphite)]/15 shadow-md flex flex-col gap-2.5 animate-[fadeIn_0.2s_ease-out_forwards]">
+                        <div className="flex items-center justify-between px-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1">
+                              <span>✨</span> Five Preset Writing Options
+                            </span>
+                            <span className="text-[10px] text-[var(--color-text-graphite)]/40">&bull;</span>
+                            <span className="font-serif italic text-xs text-[var(--color-text-graphite)]">
+                              Change from how Altheara initially wrote this
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveStyleTabParagraphId(null)}
+                            className="text-xs text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] px-1"
+                          >
+                            &times;
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                          {MASTER_STYLES.map((style) => (
+                            <button
+                              key={style.id}
+                              type="button"
+                              onClick={() => handleOpenRefine(currentChapter.id, p.id, p.text, pIdx, style.id)}
+                              className="group text-left p-2.5 rounded-lg bg-[var(--color-canvas-linen)] hover:bg-white border border-[var(--color-text-graphite)]/15 hover:border-[var(--color-accent-clay)] transition-all flex flex-col gap-0.5 shadow-sm active:scale-[0.98]"
+                              title={style.description}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs shrink-0">{style.icon}</span>
+                                <span className="font-sans text-[10px] sm:text-[11px] font-medium text-[var(--color-text-ink)] group-hover:text-[var(--color-accent-clay)] transition-colors truncate">
+                                  {style.label}
+                                </span>
+                              </div>
+                              <span className="font-sans text-[8px] text-[var(--color-text-graphite)]/70 truncate">
+                                {style.subtitle}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -969,11 +1074,11 @@ function ManuscriptEditorContent() {
 
               {/* Side-by-Side Columns */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {/* Column 1: Original Manuscript */}
+                {/* Column 1: How Altheara Initially Wrote It */}
                 <div className="flex flex-col gap-2 p-4 rounded-xl bg-[var(--color-canvas-stone)]/30 border border-[var(--color-text-graphite)]/15">
                   <div className="flex items-center justify-between pb-2 border-b border-[var(--color-text-graphite)]/10">
                     <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)]/70 font-medium">
-                      Original Manuscript
+                      How Altheara Initially Wrote It
                     </span>
                     <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/50">
                       {refineTarget.text.split(/\s+/).filter(Boolean).length} words
@@ -984,12 +1089,12 @@ function ManuscriptEditorContent() {
                   </p>
                 </div>
 
-                {/* Column 2: Altheara Refinement */}
+                {/* Column 2: Revised in Preset Style */}
                 <div className="flex flex-col gap-2 p-4 rounded-xl bg-white border border-[var(--color-accent-clay)]/30 shadow-sm relative">
                   <div className="flex items-center justify-between pb-2 border-b border-[var(--color-accent-clay)]/20">
                     <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1.5">
                       <span>✨</span>
-                      <span>Altheara Revision</span>
+                      <span>Revised in {refineResult?.styleLabel || 'Preset'} Style</span>
                     </span>
                     {refineResult && (
                       <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/60">
