@@ -122,6 +122,60 @@ export async function POST(request: Request) {
       );
     }
 
+    // SERVER-SIDE ASSET VALIDATION (Phase LP2B - Correction 3)
+    // The draft must only reference verified assets belonging to this member and publication.
+    let updatedBookstoreImage = existingDraft.bookstoreImage;
+    if (draftPayload.bookstoreImage !== undefined) {
+      if (draftPayload.bookstoreImage === null) {
+        updatedBookstoreImage = undefined;
+      } else {
+        const candidate = draftPayload.bookstoreImage;
+        if (!candidate.assetId || typeof candidate.assetId !== 'string') {
+          return NextResponse.json(
+            { error: 'Invalid bookstore image configuration. Asset ID is required.' },
+            { status: 400 }
+          );
+        }
+
+        const sanitizedAssetId = candidate.assetId.replace(/[^a-zA-Z0-9_-]/g, '');
+        const assetMetaPath = path.join(
+          VAULT_DIR,
+          member.id,
+          'publishing_assets',
+          existingDraft.publicationId,
+          `${sanitizedAssetId}.meta.json`
+        );
+
+        if (!fs.existsSync(assetMetaPath)) {
+          return NextResponse.json(
+            { error: 'Referenced bookstore image asset does not exist or does not belong to this publication.' },
+            { status: 400 }
+          );
+        }
+
+        const assetMeta = JSON.parse(fs.readFileSync(assetMetaPath, 'utf-8'));
+        if (assetMeta.memberId !== member.id || assetMeta.publicationId !== existingDraft.publicationId) {
+          return NextResponse.json(
+            { error: 'Access forbidden. Referenced asset belongs to a different member or publication.' },
+            { status: 403 }
+          );
+        }
+
+        updatedBookstoreImage = {
+          assetId: sanitizedAssetId,
+          source: candidate.source || 'member_upload',
+          storagePath: `/api/volume/publishing/image?assetId=${sanitizedAssetId}&pubDraftId=${sanitizedPubDraftId}`,
+          mimeType: assetMeta.mimeType,
+          width: assetMeta.width,
+          height: assetMeta.height,
+          isApproved: Boolean(candidate.isApproved),
+          approvedAt: candidate.isApproved
+            ? candidate.approvedAt || new Date().toISOString()
+            : undefined
+        };
+      }
+    }
+
     // Merge updates while protecting core identity & provenance
     const updatedDraft: PublishingDraft = {
       ...existingDraft,
@@ -131,6 +185,7 @@ export async function POST(request: Request) {
       publicationDescription: draftPayload.publicationDescription !== undefined ? draftPayload.publicationDescription : existingDraft.publicationDescription,
       dedication: draftPayload.dedication !== undefined ? draftPayload.dedication : existingDraft.dedication,
       chapters: JSON.parse(JSON.stringify(draftPayload.chapters)),
+      bookstoreImage: updatedBookstoreImage,
       coverConfig: draftPayload.coverConfig || existingDraft.coverConfig,
       authorVideo: draftPayload.authorVideo !== undefined ? draftPayload.authorVideo : existingDraft.authorVideo,
       currentStep: draftPayload.currentStep || existingDraft.currentStep,

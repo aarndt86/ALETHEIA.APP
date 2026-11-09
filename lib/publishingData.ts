@@ -10,6 +10,38 @@ import { ManuscriptChapter } from './volumeData';
 
 export type PublishingStep = 1 | 2 | 3 | 4 | 5;
 
+/**
+ * Verified Bookstore Listing Image Asset.
+ * Stored securely in member's vault publishing_assets directory.
+ */
+export interface BookstoreImageAsset {
+  assetId: string;
+  publicationId: string;
+  memberId: string;
+  fileName: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  fileSizeBytes: number;
+  width: number;
+  height: number;
+  storagePath: string; // /api/volume/publishing/image?assetId=...&pubDraftId=...
+  uploadedAt: string;
+}
+
+/**
+ * Bookstore Listing Image configuration on the publishing draft.
+ * Represents pure visual artwork, decoupled from bookstore typographic listing metadata.
+ */
+export interface BookstoreImageConfig {
+  assetId: string;
+  source: 'member_upload' | 'ai_generated';
+  storagePath: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  isApproved: boolean;
+  approvedAt?: string;
+}
+
 export interface PublishingCoverConfig {
   type: 'signature_linen' | 'custom_upload';
   annualDesignId?: string; // e.g. 'linen-2025-oatmeal'
@@ -49,6 +81,7 @@ export interface PublishingDraft {
   publicationDescription?: string;
   dedication?: string;
   chapters: ManuscriptChapter[];
+  bookstoreImage?: BookstoreImageConfig;
   coverConfig?: PublishingCoverConfig;
   authorVideo?: PublishingAuthorVideoAsset | null;
   status: 'draft';

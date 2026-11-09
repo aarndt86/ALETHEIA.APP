@@ -484,14 +484,14 @@ function ManuscriptEditorContent() {
     }, 400);
   };
 
-  // Handle Proceed to Book Cover in Publishing Mode
-  const handleProceedToCover = async () => {
+  // Handle Proceed to Bookstore Image in Publishing Mode (Phase LP2B)
+  const handleProceedToBookstoreImage = async () => {
     if (draft && saveStatus === 'dirty') {
       await saveDraftToServer(draft);
     }
     setIsExiting(true);
     setTimeout(() => {
-      router.push(`/profile/digital-library?bookId=${draft?.sourceVolumeId || volumeId}&step=3&pubDraftId=${encodeURIComponent(pubDraftId || '')}`);
+      router.push(`/profile/legacy-publisher?pubDraftId=${encodeURIComponent(pubDraftId || '')}&step=2`);
     }, 400);
   };
 
@@ -597,15 +597,15 @@ function ManuscriptEditorContent() {
             <span className="sm:hidden">Later</span>
           </button>
 
-          {/* Action: Finish Volume (Private Mode) or Proceed to Book Cover (Publishing Mode) */}
+          {/* Action: Finish Volume (Private Mode) or Proceed to Bookstore Image (Publishing Mode) */}
           {isPublishingMode ? (
             <button
               type="button"
-              onClick={handleProceedToCover}
+              onClick={handleProceedToBookstoreImage}
               className="py-1 px-3 sm:py-1.5 sm:px-4 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-[9px] sm:text-[11px] tracking-[0.14em] uppercase transition-all duration-300 active:scale-[0.98] focus:outline-none whitespace-nowrap shadow-sm"
             >
-              <span className="hidden sm:inline">Proceed to Book Cover &rarr;</span>
-              <span className="sm:hidden">Next Step &rarr;</span>
+              <span className="hidden sm:inline">Proceed to Bookstore Image &rarr;</span>
+              <span className="sm:hidden">Bookstore Image &rarr;</span>
             </button>
           ) : (
             <button
