@@ -218,6 +218,83 @@ export interface ReadingStateRecord {
   lastReadAt: string;
 }
 
+// --- DEDICATED AUDIOBOOK PRESERVATION PACKAGE (Phase D2) ---
+// Package is stored in .data/vault/{memberId}/audiobooks/{editionId}.json
+// strictly decoupled from immutable manuscript snapshot.
+export type NarrationSourceType = 
+  | 'authentic_author_recording'       // Genuine human author recording
+  | 'authorized_digital_voice_replica' // Separate authorized AI replica
+  | 'passage_take_only'                // Author passage excerpt (not full book)
+  | 'unrecorded';                      // No audio attached
+
+export type AudiobookAvailabilityStatus = 
+  | 'complete'                         // Every required chapter has approved audio
+  | 'partial'                          // Multiple tracks exist, but incomplete
+  | 'passage_take_only'                // Single preserved passage take
+  | 'not_available';                   // No audio recorded for this edition
+
+export interface AudiobookTrack {
+  trackId: string;
+  chapterId: string;
+  chapterNumber: number;
+  chapterRoman: string;
+  chapterTitle: string;
+  audioAssetId: string;
+  storagePath: string;                 // URL: /api/volume/recording?assetId=...
+  mimeType: string;
+  durationSeconds: number;
+  fileSizeBytes: number;
+  wordCount?: number;
+  status: 'approved_by_author' | 'pending_approval';
+}
+
+export interface VoiceConsentRecord {
+  consentId: string;
+  memberId: string;
+  sourceVolumeId: string;
+  editionId: string;
+  authorizedAt: string;
+  scope: 'this_edition_only' | 'this_volume_all_editions';
+  voiceSampleAssetId: string;
+  providerModelId?: string;
+  termsVersion: string;
+  status: 'active' | 'revoked';
+}
+
+export interface AudiobookPackage {
+  editionId: string;
+  sourceVolumeId: string;
+  bookTitle: string;
+  authorName: string;
+  narrationSource: NarrationSourceType;
+  availabilityStatus: AudiobookAvailabilityStatus;
+  narratorCredit: string;
+  isAiGenerated: boolean;
+  totalDurationSeconds: number;
+  totalChapters: number;
+  completedChapters: number;
+  tracks: AudiobookTrack[];
+  consentRecordId?: string | null;
+  isDevFixture?: boolean;              // Tagged if using legitimate test fixture
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- LISTENING STATE PERSISTENCE (Phase D2) ---
+// Stored in .data/vault/{memberId}/listening_state/{editionId}.json
+export interface ListeningStateRecord {
+  memberId: string;
+  editionId: string;
+  activeTrackIndex: number;
+  activeChapterNumber: number;
+  trackProgressSeconds: number;
+  totalDurationSeconds: number;
+  totalProgressPercentage: number;
+  playbackRate: number;
+  volume: number;
+  lastListenedAt: string;
+}
+
 // --- IMMUTABLE SOURCE VOLUMES ---
 export const SOURCE_VOLUMES: VolumeSummary[] = [
   {

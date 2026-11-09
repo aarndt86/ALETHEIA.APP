@@ -9,7 +9,8 @@ interface BookDetailViewProps {
   selectedEdition: PreservedVolumeEdition;
   onSelectEdition: (editionId: string) => void;
   onOpenReader: () => void;
-  onOpenRecordedPresence: () => void;
+  onOpenAudiobook: () => void;
+  onOpenWatch: () => void;
   onBackToBookshelf: () => void;
 }
 
@@ -18,7 +19,8 @@ export default function BookDetailView({
   selectedEdition,
   onSelectEdition,
   onOpenReader,
-  onOpenRecordedPresence,
+  onOpenAudiobook,
+  onOpenWatch,
   onBackToBookshelf,
 }: BookDetailViewProps) {
   const router = useRouter();
@@ -268,13 +270,13 @@ export default function BookDetailView({
             )}
 
             {/* ============================================================ */}
-            {/* THE THREE PRIMARY CHOICES (Brief Section 5)                   */}
+            {/* THE THREE PRIMARY CHOICES                                     */}
             {/* 1. Read My Book                                              */}
-            {/* 2. Experience Recorded Presence                              */}
-            {/* 3. My Physical Editions                                      */}
+            {/* 2. Listen to My Book                                         */}
+            {/* 3. Watch My Book                                             */}
             {/* ============================================================ */}
             <div className="flex flex-col gap-3.5 mt-2">
-              {/* Choice 1: Read My Book (Active in Phase C) */}
+              {/* Choice 1: Read My Book (eBook Reader) */}
               <div
                 onClick={onOpenReader}
                 role="button"
@@ -302,13 +304,13 @@ export default function BookDetailView({
                 </span>
               </div>
 
-              {/* Choice 2: Experience Recorded Presence (Active in Phase D) */}
+              {/* Choice 2: Listen to My Book (Audiobook Player) */}
               <div
-                onClick={onOpenRecordedPresence}
+                onClick={onOpenAudiobook}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') onOpenRecordedPresence();
+                  if (e.key === 'Enter' || e.key === ' ') onOpenAudiobook();
                 }}
                 className={`group cursor-pointer p-5 sm:p-6 rounded-2xl transition-all duration-300 flex items-center justify-between border shadow-sm active:scale-[0.99] ${
                   selectedEdition.authenticRecording
@@ -319,7 +321,7 @@ export default function BookDetailView({
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="font-serif text-xl sm:text-2xl font-medium tracking-tight text-[var(--color-text-ink)]">
-                      Experience Recorded Presence
+                      Listen to My Book
                     </span>
                     <span
                       className={`py-0.5 px-2 rounded-full font-sans text-[8px] tracking-widest uppercase font-semibold ${
@@ -328,46 +330,62 @@ export default function BookDetailView({
                           : 'bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 text-[var(--color-text-graphite)]'
                       }`}
                     >
-                      {selectedEdition.authenticRecording
-                        ? selectedEdition.authenticRecording.mediaType === 'video'
-                          ? 'Video Message'
-                          : 'Voice Take'
-                        : 'No Recording'}
+                      {selectedEdition.authenticRecording ? 'Audio Available' : 'Not Recorded'}
                     </span>
                   </div>
                   <span className="font-serif italic text-xs text-[var(--color-text-graphite)]/80">
                     {selectedEdition.authenticRecording
-                      ? `Authentic ${
-                          selectedEdition.authenticRecording.mediaType === 'video' ? 'video take' : 'voice take'
-                        } (${selectedEdition.authenticRecording.durationSeconds}s) preserved with this book.`
-                      : 'This edition does not include a voice or video recording.'}
+                      ? `Listen to ${selectedEdition.authorName}'s preserved voice recording and chapter narrations.`
+                      : 'This edition does not currently include recorded audio.'}
                   </span>
                 </div>
                 <span className="font-sans text-xs tracking-widest uppercase text-[var(--color-accent-clay)] group-hover:translate-x-1 transition-transform ml-4 shrink-0 font-medium">
-                  {selectedEdition.authenticRecording ? 'Listen \u2192' : 'View Status \u2192'}
+                  {selectedEdition.authenticRecording ? (
+                    <>Listen &rarr;</>
+                  ) : (
+                    <>View Status &rarr;</>
+                  )}
                 </span>
               </div>
 
-              {/* Choice 3: My Physical Editions (Upcoming in Phase E) */}
-              <div className="p-5 sm:p-6 rounded-2xl bg-white/60 border border-[var(--color-text-graphite)]/15 flex items-center justify-between opacity-90">
+              {/* Choice 3: Watch My Book (Authentic Video Passages) */}
+              <div
+                onClick={onOpenWatch}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') onOpenWatch();
+                }}
+                className={`group cursor-pointer p-5 sm:p-6 rounded-2xl transition-all duration-300 flex items-center justify-between border shadow-sm active:scale-[0.99] ${
+                  selectedEdition.authenticRecording?.mediaType === 'video'
+                    ? 'bg-white/85 hover:bg-white border-[var(--color-text-graphite)]/20 hover:border-[var(--color-accent-clay)]/40 hover:shadow-md'
+                    : 'bg-white/50 hover:bg-white/70 border-[var(--color-text-graphite)]/15'
+                }`}
+              >
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="font-serif text-xl sm:text-2xl font-medium tracking-tight text-[var(--color-text-ink)]">
-                      My Physical Editions
+                      Watch My Book
                     </span>
-                    <span className="py-0.5 px-2 rounded-full bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 font-sans text-[8px] tracking-widest uppercase text-[var(--color-text-graphite)]">
-                      Phase E
+                    <span
+                      className={`py-0.5 px-2 rounded-full font-sans text-[8px] tracking-widest uppercase font-semibold ${
+                        selectedEdition.authenticRecording?.mediaType === 'video'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 text-[var(--color-text-graphite)]'
+                      }`}
+                    >
+                      {selectedEdition.authenticRecording?.mediaType === 'video' ? 'Video Passage' : 'Passage Mode'}
                     </span>
                   </div>
                   <span className="font-serif italic text-xs text-[var(--color-text-graphite)]/80">
-                    Revisit previously ordered physical copies and verified production specifications.
+                    {selectedEdition.authenticRecording?.mediaType === 'video'
+                      ? 'Watch authentic preserved video passages of the author.'
+                      : 'Individual passage video viewing. Full-book avatar narration in future phase.'}
                   </span>
                 </div>
-                <div className="text-right shrink-0 ml-4">
-                  <span className="font-sans text-[10px] tracking-wider uppercase text-[var(--color-text-graphite)]/60 font-medium">
-                    0 Orders
-                  </span>
-                </div>
+                <span className="font-sans text-xs tracking-widest uppercase text-[var(--color-text-graphite)] group-hover:text-[var(--color-text-ink)] group-hover:translate-x-1 transition-transform ml-4 shrink-0 font-medium">
+                  Watch &rarr;
+                </span>
               </div>
             </div>
 

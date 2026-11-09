@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PreservedBook, PreservedVolumeEdition } from '@/lib/volumeData';
 import BookDetailView from '@/components/library/BookDetailView';
 import EBookReader from '@/components/library/EBookReader';
-import RecordedPresenceView from '@/components/library/RecordedPresenceView';
+import AudiobookPlayer from '@/components/library/AudiobookPlayer';
+import WatchMyBookView from '@/components/library/WatchMyBookView';
 
 function DigitalLibraryContent() {
   const router = useRouter();
@@ -13,13 +14,14 @@ function DigitalLibraryContent() {
   const requestedBookId = searchParams.get('bookId');
   const requestedEditionId = searchParams.get('editionId');
   const shouldAutoRead = searchParams.get('read') === '1';
-  const shouldAutoOpenPresence = searchParams.get('presence') === '1' || searchParams.get('tab') === 'presence';
+  const shouldAutoListen = searchParams.get('listen') === '1' || searchParams.get('audiobook') === '1';
+  const shouldAutoWatch = searchParams.get('watch') === '1' || searchParams.get('presence') === '1';
 
   const [books, setBooks] = useState<PreservedBook[]>([]);
   const [selectedBook, setSelectedBook] = useState<PreservedBook | null>(null);
   const [selectedEdition, setSelectedEdition] = useState<PreservedVolumeEdition | null>(null);
   const [targetChapterIndex, setTargetChapterIndex] = useState<number | undefined>(undefined);
-  const [view, setView] = useState<'bookshelf' | 'detail' | 'reader' | 'presence'>('bookshelf');
+  const [view, setView] = useState<'bookshelf' | 'detail' | 'reader' | 'audiobook' | 'watch'>('bookshelf');
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,8 +86,10 @@ function DigitalLibraryContent() {
 
               if (shouldAutoRead) {
                 setView('reader');
-              } else if (shouldAutoOpenPresence) {
-                setView('presence');
+              } else if (shouldAutoListen) {
+                setView('audiobook');
+              } else if (shouldAutoWatch) {
+                setView('watch');
               } else {
                 setView('detail');
               }
@@ -105,7 +109,7 @@ function DigitalLibraryContent() {
     return () => {
       isMounted = false;
     };
-  }, [requestedBookId, requestedEditionId, shouldAutoRead, shouldAutoOpenPresence, searchParams]);
+  }, [requestedBookId, requestedEditionId, shouldAutoRead, shouldAutoListen, shouldAutoWatch, searchParams]);
 
   // Open Book Detail View
   const handleOpenBookDetail = (book: PreservedBook) => {
@@ -116,7 +120,7 @@ function DigitalLibraryContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Switch preserved edition within detail, reader, or recorded presence
+  // Switch preserved edition within detail, reader, audiobook, or watch
   const handleSelectEdition = async (editionId: string) => {
     if (!selectedBook) return;
     try {
@@ -138,8 +142,13 @@ function DigitalLibraryContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOpenRecordedPresence = () => {
-    setView('presence');
+  const handleOpenAudiobook = () => {
+    setView('audiobook');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenWatch = () => {
+    setView('watch');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -156,7 +165,7 @@ function DigitalLibraryContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // If in Reader view
+  // VIEW 1: Reader view
   if (view === 'reader' && selectedBook && selectedEdition) {
     return (
       <EBookReader
@@ -170,26 +179,44 @@ function DigitalLibraryContent() {
     );
   }
 
-  // If in Recorded Presence view (Phase D Experience)
-  if (view === 'presence' && selectedBook && selectedEdition) {
+  // VIEW 2: Audiobook Player view (Phase D2 Listen to My Book)
+  if (view === 'audiobook' && selectedBook && selectedEdition) {
     return (
       <div className="min-h-screen bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] flex flex-col font-sans select-none">
         <main className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-10 sm:py-14 flex-1 flex flex-col">
-          <RecordedPresenceView
+          <AudiobookPlayer
             book={selectedBook}
             selectedEdition={selectedEdition}
             onSelectEdition={handleSelectEdition}
-            onOpenReaderAtChapter={(chapterNum) => {
-              setTargetChapterIndex(Math.max(0, chapterNum - 1));
-              setView('reader');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onOpenReader={handleOpenReader}
             onBackToDetail={handleBackToDetail}
             onBackToBookshelf={handleBackToBookshelf}
           />
         </main>
         <footer className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-8 border-t border-[var(--color-text-graphite)]/15 text-center flex flex-col items-center gap-1 text-[var(--color-text-graphite)]/60 font-sans text-[9px] tracking-widest uppercase">
-          <span>Authentic Living Memory &bull; Preserved in Private Vault</span>
+          <span>Archival Living Audio &bull; Preserved in Private Vault</span>
+          <span>A Place for Your Life &bull; Altheara</span>
+        </footer>
+      </div>
+    );
+  }
+
+  // VIEW 3: Watch My Book view (Phase D2 Video Passages)
+  if (view === 'watch' && selectedBook && selectedEdition) {
+    return (
+      <div className="min-h-screen bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] flex flex-col font-sans select-none">
+        <main className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-10 sm:py-14 flex-1 flex flex-col">
+          <WatchMyBookView
+            book={selectedBook}
+            selectedEdition={selectedEdition}
+            onSelectEdition={handleSelectEdition}
+            onOpenReader={handleOpenReader}
+            onBackToDetail={handleBackToDetail}
+            onBackToBookshelf={handleBackToBookshelf}
+          />
+        </main>
+        <footer className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-8 border-t border-[var(--color-text-graphite)]/15 text-center flex flex-col items-center gap-1 text-[var(--color-text-graphite)]/60 font-sans text-[9px] tracking-widest uppercase">
+          <span>Approved Video Presence &bull; Preserved in Private Vault</span>
           <span>A Place for Your Life &bull; Altheara</span>
         </footer>
       </div>
@@ -251,14 +278,15 @@ function DigitalLibraryContent() {
           </div>
         )}
 
-        {/* VIEW 1: BOOK DETAIL VIEW (Phase C Primary Stage) */}
+        {/* VIEW 1: BOOK DETAIL VIEW */}
         {!isLoading && !error && view === 'detail' && selectedBook && selectedEdition && (
           <BookDetailView
             book={selectedBook}
             selectedEdition={selectedEdition}
             onSelectEdition={handleSelectEdition}
             onOpenReader={handleOpenReader}
-            onOpenRecordedPresence={handleOpenRecordedPresence}
+            onOpenAudiobook={handleOpenAudiobook}
+            onOpenWatch={handleOpenWatch}
             onBackToBookshelf={handleBackToBookshelf}
           />
         )}
