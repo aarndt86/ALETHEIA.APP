@@ -19,7 +19,7 @@ interface RefineResult {
   summary: string;
   styleLabel: string;
   styleSubtitle: string;
-  styleIcon: string;
+  numeral: string;
   badgeColor: string;
 }
 
@@ -291,7 +291,7 @@ function ManuscriptEditorContent() {
         summary: data.summary,
         styleLabel: data.styleLabel,
         styleSubtitle: data.styleSubtitle,
-        styleIcon: data.styleIcon,
+        numeral: data.numeral,
         badgeColor: data.badgeColor,
       });
     } catch (err) {
@@ -665,8 +665,8 @@ function ManuscriptEditorContent() {
                 <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-[var(--color-text-ink)] tracking-tight">
                   {currentChapter?.title}
                 </h1>
-                <span className="opacity-0 group-hover:opacity-60 transition-opacity font-sans text-xs text-[var(--color-text-graphite)]">
-                  ✎
+                <span className="opacity-0 group-hover:opacity-60 transition-opacity font-sans text-[9px] tracking-widest uppercase text-[var(--color-text-graphite)]">
+                  Rename
                 </span>
               </div>
             )}
@@ -719,15 +719,14 @@ function ManuscriptEditorContent() {
                             onClick={() =>
                               setActiveStyleTabParagraphId(activeStyleTabParagraphId === p.id ? null : p.id)
                             }
-                            className={`py-1 px-3.5 rounded-full border font-sans text-[9px] tracking-[0.16em] uppercase transition-all flex items-center gap-1.5 focus:outline-none active:scale-95 shadow-sm ${
+                            className={`py-1 px-3.5 rounded-full border font-sans text-[9px] tracking-[0.16em] uppercase transition-all flex items-center gap-1 focus:outline-none active:scale-95 shadow-sm ${
                               activeStyleTabParagraphId === p.id
                                 ? 'bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] border-[var(--color-text-ink)] font-medium'
                                 : 'bg-[var(--color-canvas-stone)]/90 hover:bg-[var(--color-canvas-stone)] border-[var(--color-text-graphite)]/25 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)]'
                             }`}
                           >
-                            <span>✨</span>
                             <span>Writing Style</span>
-                            <span className="text-[8px] opacity-70">
+                            <span className="text-[8px] opacity-60 ml-0.5">
                               {activeStyleTabParagraphId === p.id ? '▲' : '▾'}
                             </span>
                           </button>
@@ -777,8 +776,8 @@ function ManuscriptEditorContent() {
                       {activeStyleTabParagraphId === p.id && (
                         <div className="p-3.5 rounded-xl bg-[var(--color-canvas-stone)]/80 border border-[var(--color-text-graphite)]/15 shadow-sm flex flex-col gap-2.5 animate-[fadeIn_0.2s_ease-out_forwards]">
                           <div className="flex items-center justify-between px-1">
-                            <span className="font-sans text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1">
-                              <span>✨</span> Five Preset Writing Options
+                            <span className="font-sans text-[9px] sm:text-[10px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold">
+                              Five Preset Writing Options
                             </span>
                             <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/70 hidden sm:inline">
                               Change from how Altheara initially wrote this passage
@@ -795,7 +794,9 @@ function ManuscriptEditorContent() {
                                 title={style.description}
                               >
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-xs shrink-0">{style.icon}</span>
+                                  <span className="font-sans text-[9px] font-semibold text-[var(--color-accent-clay)] tracking-wider shrink-0">
+                                    {style.numeral}.
+                                  </span>
                                   <span className="font-sans text-[10px] sm:text-[11px] font-medium text-[var(--color-text-ink)] group-hover:text-[var(--color-accent-clay)] transition-colors truncate">
                                     {style.label}
                                   </span>
@@ -846,8 +847,8 @@ function ManuscriptEditorContent() {
                       </p>
 
                       {/* Subtle hover cue for manual editing */}
-                      <span className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity font-sans text-[10px] tracking-widest uppercase text-[var(--color-text-graphite)] select-none">
-                        ✎ Click to Edit
+                      <span className="absolute top-2 right-2 opacity-0 group-hover:opacity-40 transition-opacity font-sans text-[9px] tracking-widest uppercase text-[var(--color-text-graphite)] select-none">
+                        Click to Edit
                       </span>
                     </div>
                   )}
@@ -864,15 +865,14 @@ function ManuscriptEditorContent() {
                         onClick={() =>
                           setActiveStyleTabParagraphId(activeStyleTabParagraphId === p.id ? null : p.id)
                         }
-                        className={`py-1 px-3.5 rounded-full border font-sans text-[9px] tracking-[0.16em] uppercase transition-all flex items-center gap-1.5 focus:outline-none active:scale-95 shadow-sm ${
+                        className={`py-1 px-3.5 rounded-full border font-sans text-[9px] tracking-[0.16em] uppercase transition-all flex items-center gap-1 focus:outline-none active:scale-95 shadow-sm ${
                           activeStyleTabParagraphId === p.id
                             ? 'bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] border-[var(--color-text-ink)] font-medium'
                             : 'bg-[var(--color-canvas-stone)]/80 hover:bg-[var(--color-canvas-stone)] border-[var(--color-text-graphite)]/20 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)]'
                         }`}
                       >
-                        <span>✨</span>
                         <span>Writing Style</span>
-                        <span className="text-[8px] opacity-70">
+                        <span className="text-[8px] opacity-60 ml-0.5">
                           {activeStyleTabParagraphId === p.id ? '▲' : '▾'}
                         </span>
                       </button>
@@ -893,8 +893,8 @@ function ManuscriptEditorContent() {
                       <div className="w-full max-w-2xl mt-3 p-3.5 rounded-xl bg-[var(--color-canvas-stone)]/90 border border-[var(--color-text-graphite)]/15 shadow-md flex flex-col gap-2.5 animate-[fadeIn_0.2s_ease-out_forwards]">
                         <div className="flex items-center justify-between px-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1">
-                              <span>✨</span> Five Preset Writing Options
+                            <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold">
+                              Five Preset Writing Options
                             </span>
                             <span className="text-[10px] text-[var(--color-text-graphite)]/40">&bull;</span>
                             <span className="font-serif italic text-xs text-[var(--color-text-graphite)]">
@@ -920,7 +920,9 @@ function ManuscriptEditorContent() {
                               title={style.description}
                             >
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs shrink-0">{style.icon}</span>
+                                <span className="font-sans text-[9px] font-semibold text-[var(--color-accent-clay)] tracking-wider shrink-0">
+                                  {style.numeral}.
+                                </span>
                                 <span className="font-sans text-[10px] sm:text-[11px] font-medium text-[var(--color-text-ink)] group-hover:text-[var(--color-accent-clay)] transition-colors truncate">
                                   {style.label}
                                 </span>
@@ -1042,7 +1044,7 @@ function ManuscriptEditorContent() {
                           : 'bg-[var(--color-canvas-linen)] text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] border border-[var(--color-text-graphite)]/15'
                       }`}
                     >
-                      <span>{style.icon}</span>
+                      <span className="font-sans text-[9px] font-semibold opacity-60 mr-1">{style.numeral}.</span>
                       <span>{style.label}</span>
                     </button>
                   );
@@ -1055,7 +1057,9 @@ function ManuscriptEditorContent() {
               {/* Style Description Banner */}
               {refineResult && (
                 <div className="p-3.5 rounded-xl bg-[var(--color-canvas-stone)]/40 border border-[var(--color-text-graphite)]/10 flex items-start gap-3">
-                  <span className="text-xl shrink-0 mt-0.5">{refineResult.styleIcon}</span>
+                  <span className="w-6 h-6 rounded-full bg-[var(--color-accent-clay)]/10 border border-[var(--color-accent-clay)]/30 flex items-center justify-center font-sans text-[10px] font-semibold text-[var(--color-accent-clay)] shrink-0 mt-0.5">
+                    {refineResult.numeral}
+                  </span>
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
                       <span className="font-serif font-medium text-sm text-[var(--color-text-ink)]">
@@ -1092,9 +1096,8 @@ function ManuscriptEditorContent() {
                 {/* Column 2: Revised in Preset Style */}
                 <div className="flex flex-col gap-2 p-4 rounded-xl bg-white border border-[var(--color-accent-clay)]/30 shadow-sm relative">
                   <div className="flex items-center justify-between pb-2 border-b border-[var(--color-accent-clay)]/20">
-                    <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold flex items-center gap-1.5">
-                      <span>✨</span>
-                      <span>Revised in {refineResult?.styleLabel || 'Preset'} Style</span>
+                    <span className="font-sans text-[9px] tracking-[0.2em] uppercase text-[var(--color-accent-clay)] font-semibold">
+                      Revised in {refineResult?.styleLabel || 'Preset'} Style
                     </span>
                     {refineResult && (
                       <span className="font-sans text-[9px] text-[var(--color-text-graphite)]/60">

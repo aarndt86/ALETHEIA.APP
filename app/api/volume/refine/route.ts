@@ -191,7 +191,7 @@ export async function POST(request: Request) {
       style: validStyle,
       styleLabel: styleInfo.label,
       styleSubtitle: styleInfo.subtitle,
-      styleIcon: styleInfo.icon,
+      numeral: styleInfo.numeral,
       badgeColor: styleInfo.badgeColor,
       summary,
       scope,
