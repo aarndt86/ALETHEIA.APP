@@ -217,10 +217,10 @@ export function FinalReviewStep({ draft, pubDraftId, onDraftUpdate }: FinalRevie
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4 border-t border-[var(--color-text-graphite)]/15 w-full">
             <button
               type="button"
-              onClick={() => router.push(`/profile/digital-library?bookId=${encodeURIComponent(draft.sourceVolumeId)}`)}
+              onClick={() => router.push('/profile/legacy-publisher')}
               className="py-3 px-8 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-xs tracking-[0.18em] uppercase transition-all focus:outline-none shadow-sm cursor-pointer"
             >
-              Return to Digital Library
+              Go to My Publications &rarr;
             </button>
             <button
               type="button"
@@ -623,10 +623,10 @@ export function FinalReviewStep({ draft, pubDraftId, onDraftUpdate }: FinalRevie
 
         <button
           type="button"
-          onClick={() => router.push(`/profile/digital-library?bookId=${encodeURIComponent(draft.sourceVolumeId)}`)}
+          onClick={() => router.push('/profile/legacy-publisher')}
           className="py-2.5 px-5 rounded-full border border-[var(--color-text-graphite)]/25 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] hover:bg-white font-sans text-xs tracking-[0.16em] uppercase transition-colors focus:outline-none"
         >
-          Save Draft &amp; Return to Library
+          Save Draft &amp; Return to My Publications
         </button>
       </footer>
     </div>

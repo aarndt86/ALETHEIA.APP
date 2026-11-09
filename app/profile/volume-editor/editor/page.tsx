@@ -484,13 +484,16 @@ function ManuscriptEditorContent() {
 
   // Handle Exit / Return
   const handleExitToVolumes = async () => {
-    if (draft && saveStatus === 'dirty') {
-      await saveDraftToServer(draft);
+    if (draft && (saveStatus === 'dirty' || saveStatus === 'error')) {
+      const ok = await saveDraftToServer(draft);
+      if (!ok) {
+        return;
+      }
     }
     setIsExiting(true);
     setTimeout(() => {
       if (isPublishingMode) {
-        router.push(`/profile/digital-library?bookId=${draft?.sourceVolumeId || volumeId}`);
+        router.push('/profile/legacy-publisher');
       } else {
         router.push('/profile/volume-editor');
       }
@@ -558,7 +561,7 @@ function ManuscriptEditorContent() {
           className="group flex items-center gap-1.5 font-sans text-[10px] sm:text-[11px] tracking-[0.18em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors focus:outline-none shrink-0"
         >
           <span className="group-hover:-translate-x-1 transition-transform duration-300">&larr;</span>
-          <span>{isPublishingMode ? 'Library' : 'Volumes'}</span>
+          <span>{isPublishingMode ? 'My Publications' : 'Volumes'}</span>
         </button>
 
         {/* Center: Book & Year Title */}

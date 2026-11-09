@@ -6,6 +6,8 @@ import { PublishingDraft } from '@/lib/publishingData';
 import { BookstoreImageStep } from '@/components/publisher/BookstoreImageStep';
 import { StoryPreviewStep } from '@/components/publisher/StoryPreviewStep';
 import { FinalReviewStep } from '@/components/publisher/FinalReviewStep';
+import { MyPublicationsView } from '@/components/publisher/MyPublicationsView';
+import { PublicationReader } from '@/components/publisher/PublicationReader';
 
 function LegacyPublisherContent() {
   const searchParams = useSearchParams();
@@ -13,17 +15,20 @@ function LegacyPublisherContent() {
 
   const pubDraftId = searchParams.get('pubDraftId');
   const stepParam = searchParams.get('step') || '2';
+  const publicationIdParam = searchParams.get('publicationId');
+  const editionIdParam = searchParams.get('editionId');
+  const isReadingMode = searchParams.get('read') === '1' || Boolean(publicationIdParam && editionIdParam);
 
   const [draft, setDraft] = useState<PublishingDraft | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(Boolean(pubDraftId));
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Load publishing draft only when pubDraftId is present
   useEffect(() => {
     let isMounted = true;
 
     async function loadPublishingDraft() {
       if (!pubDraftId) {
-        setLoadError('No publishing draft specified. Please select an edition from your Digital Library to publish.');
         setIsLoading(false);
         return;
       }
@@ -60,6 +65,18 @@ function LegacyPublisherContent() {
     };
   }, [pubDraftId]);
 
+  // Mode 1: Preserved Publication Reader
+  if (isReadingMode && publicationIdParam) {
+    return (
+      <PublicationReader
+        publicationId={publicationIdParam}
+        initialEditionId={editionIdParam || undefined}
+        onBackToLibrary={() => router.push('/profile/legacy-publisher')}
+      />
+    );
+  }
+
+  // Mode 2: Loading State for Draft
   if (isLoading) {
     return (
       <main className="min-h-screen w-full bg-[var(--color-canvas-linen)] flex flex-col items-center justify-center p-6 text-center">
@@ -74,7 +91,8 @@ function LegacyPublisherContent() {
     );
   }
 
-  if (loadError || !draft || !pubDraftId) {
+  // Mode 3: Draft Load Error
+  if (loadError || (pubDraftId && !draft)) {
     return (
       <main className="min-h-screen w-full bg-[var(--color-canvas-linen)] flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md p-8 rounded-2xl bg-white/70 border border-red-200 shadow-sm flex flex-col items-center gap-4">
@@ -86,16 +104,30 @@ function LegacyPublisherContent() {
           </p>
           <button
             type="button"
-            onClick={() => router.push('/profile/digital-library')}
-            className="mt-2 py-2.5 px-6 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-xs tracking-[0.16em] uppercase hover:bg-[var(--color-text-ink)]/90 transition-all focus:outline-none"
+            onClick={() => router.push('/profile/legacy-publisher')}
+            className="mt-2 py-2.5 px-6 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-xs tracking-[0.16em] uppercase hover:bg-[var(--color-text-ink)]/90 transition-all focus:outline-none cursor-pointer"
           >
-            Return to Digital Library
+            &larr; Return to My Publications
           </button>
         </div>
       </main>
     );
   }
 
+  // Mode 4: No draft specified -> Render My Publications Library Workspace
+  if (!pubDraftId || !draft) {
+    return (
+      <main className="min-h-screen w-full bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] selection:bg-[var(--color-canvas-stone)]">
+        <MyPublicationsView
+          onReadEdition={(publicationId, editionId) => {
+            router.push(`/profile/legacy-publisher?publicationId=${encodeURIComponent(publicationId)}&editionId=${encodeURIComponent(editionId)}&read=1`);
+          }}
+        />
+      </main>
+    );
+  }
+
+  // Mode 5: Active 4-Step Publishing Preparation Journey
   return (
     <main className="min-h-screen w-full bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] selection:bg-[var(--color-canvas-stone)]">
       {stepParam === '2' && (

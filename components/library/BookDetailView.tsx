@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PreservedBook, PreservedVolumeEdition, ANNUAL_LINEN_DESIGNS } from '@/lib/volumeData';
+import { PublishingDraft } from '@/lib/publishingData';
 
 interface BookDetailViewProps {
   book: PreservedBook;
@@ -33,8 +34,19 @@ export default function BookDetailView({
   // Legacy Publisher state
   const [isStartingPublishing, setIsStartingPublishing] = useState(false);
   const [publishingError, setPublishingError] = useState<string | null>(null);
+  const [showResumePublishingModal, setShowResumePublishingModal] = useState(false);
+  const [existingPublishingDrafts, setExistingPublishingDrafts] = useState<PublishingDraft[]>([]);
 
-  const handleStartPublishing = async () => {
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('modal') === 'resume_pub') {
+        handleStartPublishing();
+      }
+    }
+  }, [selectedEdition.editionId]);
+
+  const createFreshPublishingDraft = async () => {
     try {
       setIsStartingPublishing(true);
       setPublishingError(null);
@@ -49,10 +61,46 @@ export default function BookDetailView({
       }
       const data = await res.json();
       setIsStartingPublishing(false);
-      router.push(`/profile/volume-editor/editor?pubDraftId=${encodeURIComponent(data.publishingDraftId)}`);
+      setShowResumePublishingModal(false);
+      router.push(`/profile/volume-editor/editor?pubDraftId=${encodeURIComponent(data.publishingDraftId)}&edit=1`);
     } catch (err: unknown) {
       setIsStartingPublishing(false);
       setPublishingError(err instanceof Error ? err.message : 'Error starting publishing.');
+    }
+  };
+
+  const handleStartPublishing = async () => {
+    try {
+      setIsStartingPublishing(true);
+      setPublishingError(null);
+
+      // Check for existing drafts derived from this source edition (Requirement 4)
+      const checkRes = await fetch(`/api/volume/publishing/publications?sourceEditionId=${encodeURIComponent(selectedEdition.editionId)}`);
+      if (checkRes.ok) {
+        const checkData = await checkRes.json();
+        if (checkData.drafts && checkData.drafts.length > 0) {
+          setExistingPublishingDrafts(checkData.drafts);
+          setShowResumePublishingModal(true);
+          setIsStartingPublishing(false);
+          return;
+        }
+      }
+
+      // If no existing drafts found, create fresh
+      await createFreshPublishingDraft();
+    } catch (err: unknown) {
+      setIsStartingPublishing(false);
+      setPublishingError(err instanceof Error ? err.message : 'Error checking existing publishing drafts.');
+    }
+  };
+
+  const handleResumeExistingDraft = (draftToResume: PublishingDraft) => {
+    setShowResumePublishingModal(false);
+    const resumeStep = draftToResume.currentStep || 2;
+    if (resumeStep === 1) {
+      router.push(`/profile/volume-editor/editor?pubDraftId=${encodeURIComponent(draftToResume.publishingDraftId)}&edit=1`);
+    } else {
+      router.push(`/profile/legacy-publisher?pubDraftId=${encodeURIComponent(draftToResume.publishingDraftId)}&step=${resumeStep}`);
     }
   };
 
@@ -559,6 +607,64 @@ export default function BookDetailView({
                 className="py-2 px-5 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[10px] tracking-wider uppercase hover:bg-[var(--color-text-ink)]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {isCloningEdition ? 'Branching Edition...' : 'Open Volume Editor \u2192'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Publication Project Modal (Phase LP2E - Requirement 4) */}
+      {showResumePublishingModal && existingPublishingDrafts.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-[#F7F5F0] border border-[var(--color-text-graphite)]/20 shadow-2xl flex flex-col gap-5 text-center">
+            <span className="font-sans text-[9px] tracking-[0.25em] uppercase text-[var(--color-accent-clay)] font-semibold">
+              Legacy Publisher &bull; Project Selection
+            </span>
+            <h3 className="font-serif text-2xl text-[var(--color-text-ink)]">
+              Publication Project Found
+            </h3>
+            <span className="font-sans text-[10px] tracking-wider uppercase text-[var(--color-accent-clay)] font-semibold">
+              Derived from Edition v{selectedEdition.version} &bull; &ldquo;{selectedEdition.bookTitle}&rdquo;
+            </span>
+
+            <div className="p-4 rounded-2xl bg-white/80 border border-[var(--color-text-graphite)]/15 text-left flex flex-col gap-1.5 font-sans text-xs">
+              <span className="font-serif text-base text-[var(--color-text-ink)] font-medium">
+                {existingPublishingDrafts[0].bookTitle || 'Untitled Publication'}
+              </span>
+              <div className="flex items-center justify-between text-[10px] text-[var(--color-text-graphite)]/80 pt-1 border-t border-[var(--color-text-graphite)]/10">
+                <span>Step {existingPublishingDrafts[0].currentStep || 2} of 4</span>
+                <span>Saved {new Date(existingPublishingDrafts[0].lastSavedAt || existingPublishingDrafts[0].createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            <p className="font-serif italic text-xs text-[var(--color-text-graphite)] leading-relaxed">
+              You already have an active publishing draft for this edition. Would you like to resume your existing draft or create an independent new publication project?
+            </p>
+
+            <div className="flex flex-col gap-2.5 mt-2">
+              <button
+                type="button"
+                onClick={() => handleResumeExistingDraft(existingPublishingDrafts[0])}
+                className="w-full py-2.5 px-5 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[11px] tracking-wider uppercase hover:bg-[var(--color-text-ink)]/90 transition-all shadow-sm cursor-pointer"
+              >
+                Resume Existing Publication &rarr;
+              </button>
+
+              <button
+                type="button"
+                disabled={isStartingPublishing}
+                onClick={createFreshPublishingDraft}
+                className="w-full py-2 px-5 rounded-full border border-[var(--color-text-graphite)]/25 text-[var(--color-text-ink)] hover:bg-white font-sans text-[10px] tracking-wider uppercase transition-colors"
+              >
+                {isStartingPublishing ? 'Creating Project...' : 'Create New Publication Project'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowResumePublishingModal(false)}
+                className="py-1 text-[10px] font-sans tracking-wider uppercase text-[var(--color-text-graphite)]/60 hover:text-[var(--color-text-ink)] transition-colors focus:outline-none"
+              >
+                Cancel
               </button>
             </div>
           </div>

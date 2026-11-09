@@ -782,10 +782,10 @@ export function StoryPreviewStep({ draft, pubDraftId, onDraftUpdate }: StoryPrev
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => router.push(`/profile/digital-library?bookId=${encodeURIComponent(draft.sourceVolumeId)}`)}
+            onClick={() => router.push('/profile/legacy-publisher')}
             className="py-2.5 px-5 rounded-full border border-[var(--color-text-graphite)]/25 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] hover:bg-white font-sans text-xs tracking-[0.16em] uppercase transition-colors focus:outline-none"
           >
-            Save Draft &amp; Return to Library
+            Save Draft &amp; Return to My Publications
           </button>
 
           <button
