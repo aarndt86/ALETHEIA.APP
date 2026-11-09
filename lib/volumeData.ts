@@ -165,6 +165,48 @@ export interface PreservedVolumeEdition {
   preservationFormats: PreservationFormatConfig;
 }
 
+// --- DIGITAL LIBRARY PRESERVED BOOK AGGREGATION ---
+// Brief Section 4: One card per book regardless of how many preserved editions exist.
+export interface PreservedBookCover {
+  type: 'signature_linen' | 'custom_accent' | 'classic_canvas';
+  baseColor: string;
+  spineFoilColor: string;
+  coverFinish?: string;
+  accentColor?: string;
+  embellishment?: string;
+  customizedTitle?: string;
+  annualDesignId?: string;
+}
+
+export interface PreservedVolumeEditionSummary {
+  editionId: string;
+  version: number;
+  preservedAt: string;
+  bookTitle: string;
+  subtitle?: string;
+  totalChapters: number;
+  totalWords: number;
+  hasAuthenticRecording: boolean;
+  recordingMediaType?: 'voice' | 'video';
+  preservationFormats: PreservationFormatConfig;
+}
+
+export interface PreservedBook {
+  bookId: string; // sourceVolumeId e.g. 'vol-2025'
+  bookType: 'annual_volume' | 'life_book';
+  year?: number;
+  displayTitle: string;
+  subtitle?: string;
+  authorName: string;
+  cover: PreservedBookCover;
+  latestEdition: PreservedVolumeEdition;
+  editions: PreservedVolumeEditionSummary[];
+  totalEditions: number;
+  hasAuthenticRecording: boolean;
+  latestRecordingMediaType?: 'voice' | 'video';
+  lastPreservedAt: string;
+}
+
 // --- IMMUTABLE SOURCE VOLUMES ---
 export const SOURCE_VOLUMES: VolumeSummary[] = [
   {
