@@ -6,7 +6,7 @@ import BottomNav from './BottomNav';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isStudioRoute = pathname?.startsWith('/profile/volume-editor');
+  const isStudioRoute = pathname?.startsWith('/profile/volume-editor') || pathname?.startsWith('/profile/digital-library');
 
   return (
     <div 

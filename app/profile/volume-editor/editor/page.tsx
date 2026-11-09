@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { useRouter, useSearchParams } from 'next/navigation';
 import { VolumeDraft, ManuscriptChapter, ManuscriptParagraph, SOURCE_VOLUMES } from '@/lib/volumeData';
 import { MASTER_STYLES, MasterStyleId, StyleDefinition } from '@/lib/manuscriptStyles';
+import VolumeCompletionModal, { CompletionStage } from '@/components/VolumeCompletionModal';
 
 type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error';
 
@@ -32,6 +33,7 @@ function ManuscriptEditorContent() {
   const initialStyleModal = searchParams.get('styleModal') === '1';
   const initialStyleTab = searchParams.get('styleTab') === '1';
   const initialStyleParam = (searchParams.get('style') as MasterStyleId) || 'warm';
+  const initialStageParam = (searchParams.get('stage') as CompletionStage) || 'presence';
 
   const [draft, setDraft] = useState<VolumeDraft | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string>('');
@@ -42,6 +44,10 @@ function ManuscriptEditorContent() {
   const [lastSavedTimeText, setLastSavedTimeText] = useState('Just now');
   const [mobileTocOpen, setMobileTocOpen] = useState(initialTocOpen);
   const [isExiting, setIsExiting] = useState(false);
+
+  // Five-Stage Volume Completion Flow modal state
+  const [completionModalOpen, setCompletionModalOpen] = useState(searchParams.get('complete') === '1');
+  const [completionStage, setCompletionStage] = useState<CompletionStage>(initialStageParam);
 
   // Five Master Styles Refinement & Diff Modal state
   const [refineModalOpen, setRefineModalOpen] = useState(false);
@@ -68,7 +74,11 @@ function ManuscriptEditorContent() {
         if (isMounted && data.draft) {
           setDraft(data.draft);
           if (data.draft.chapters && data.draft.chapters.length > 0) {
-            setActiveChapterId(data.draft.chapters[0].id);
+            const chapterQuery = searchParams.get('chapter');
+            const targetChap = chapterQuery 
+              ? data.draft.chapters.find((c: ManuscriptChapter) => c.number.toString() === chapterQuery || c.id === chapterQuery || c.romanNumeral === chapterQuery)
+              : data.draft.chapters[0];
+            setActiveChapterId(targetChap ? targetChap.id : data.draft.chapters[0].id);
             if (initialEditMode && data.draft.chapters[0].paragraphs && data.draft.chapters[0].paragraphs.length > 0) {
               setEditingParagraphId(data.draft.chapters[0].paragraphs[0].id);
             }
@@ -384,6 +394,15 @@ function ManuscriptEditorContent() {
     }, 400);
   };
 
+  // Handle Volume Completion Flow
+  const handleStartCompletionFlow = async () => {
+    if (draft && saveStatus === 'dirty') {
+      await saveDraftToServer(draft);
+    }
+    setCompletionStage('presence');
+    setCompletionModalOpen(true);
+  };
+
   if (!draft || !draft.chapters || draft.chapters.length === 0) {
     return (
       <main className="min-h-[100dvh] w-full flex flex-col items-center justify-center p-8 bg-[var(--color-canvas-linen)]">
@@ -473,6 +492,16 @@ function ManuscriptEditorContent() {
           >
             <span className="hidden sm:inline">Continue Later</span>
             <span className="sm:hidden">Later</span>
+          </button>
+
+          {/* Finish My Volume Action */}
+          <button
+            type="button"
+            onClick={handleStartCompletionFlow}
+            className="py-1 px-3 sm:py-1.5 sm:px-4 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-[9px] sm:text-[11px] tracking-[0.14em] uppercase transition-all duration-300 active:scale-[0.98] focus:outline-none whitespace-nowrap shadow-sm"
+          >
+            <span className="hidden sm:inline">Finish My Volume</span>
+            <span className="sm:hidden">Finish</span>
           </button>
         </div>
       </nav>
@@ -981,6 +1010,28 @@ function ManuscriptEditorContent() {
                 </button>
               )}
             </div>
+
+            {/* If on final chapter, show Finish My Volume call to action */}
+            {draft.chapters.findIndex((c) => c.id === currentChapter?.id) === draft.chapters.length - 1 && (
+              <div className="w-full mt-8 p-6 sm:p-8 rounded-2xl bg-[var(--color-canvas-stone)]/50 border border-[var(--color-text-graphite)]/20 text-center flex flex-col items-center gap-3">
+                <span className="font-sans text-[9px] sm:text-[10px] tracking-[0.25em] uppercase text-[var(--color-accent-clay)] font-semibold">
+                  Manuscript Complete
+                </span>
+                <h3 className="font-serif text-2xl sm:text-3xl text-[var(--color-text-ink)]">
+                  Ready to preserve your volume?
+                </h3>
+                <p className="font-serif italic text-sm text-[var(--color-text-graphite)] max-w-md">
+                  Seal your chapters, personal edits, and authentic voice into an immutable keepsake in your private vault.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleStartCompletionFlow}
+                  className="mt-2 py-2.5 px-6 sm:py-3 sm:px-8 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] font-sans text-[10px] sm:text-xs tracking-[0.2em] uppercase hover:bg-[var(--color-text-ink)]/90 transition-all active:scale-[0.98] shadow-md"
+                >
+                  Finish My Volume &rarr;
+                </button>
+              </div>
+            )}
           </footer>
         </article>
       </div>
@@ -1193,6 +1244,17 @@ function ManuscriptEditorContent() {
             </footer>
           </div>
         </div>
+      )}
+      {/* ============================================================
+          FIVE-STAGE VOLUME COMPLETION & PRESERVATION MODAL
+          ============================================================ */}
+      {draft && (
+        <VolumeCompletionModal
+          isOpen={completionModalOpen}
+          onClose={() => setCompletionModalOpen(false)}
+          draft={draft}
+          initialStage={completionStage}
+        />
       )}
     </main>
   );
