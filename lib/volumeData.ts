@@ -356,6 +356,86 @@ export interface AvatarVideoPackage {
   updatedAt: string;
 }
 
+// --- PHYSICAL EDITION ORDER & BINDERY MODELS (Phase E) ---
+// Dedicated edition-bound physical order ledger decoupled from manuscript snapshots.
+// Stored in .data/vault/{memberId}/orders/{orderId}.json
+
+export type PhysicalFormatType = 'signature_linen' | 'custom_hardcover' | 'paperback';
+
+export type BinderyFulfillmentStatus = 
+  | 'order_received'          // Order confirmed, waiting for bindery batch
+  | 'crafting_at_bindery'     // In active binding, printing, or foil debossing
+  | 'quality_inspected'       // Hand-inspected by bindery master
+  | 'shipped'                 // Dispatched with carrier tracking
+  | 'delivered'               // Safely received by member
+  | 'cancelled';              // Cancelled prior to binding
+
+export interface FrozenPrintSpecification {
+  formatType: PhysicalFormatType;
+  formatDisplayName: string;       // e.g. "Altheara Signature Linen (2025 Annual Collection)"
+  trimSize: '6x9';
+  paperStock: 'Cream 60# Archival Book';
+  bindingType: 'Case-Bound Woven Linen' | 'Case Laminate Matte' | 'Trade Paperback Perfect Bound';
+  coverFinish: string;             // e.g. "Archival Oatmeal Linen with Bronze Foil Spine"
+  customizedTitle: string;         // Debossed/foil stamped title
+  authorName: string;
+  spineFoilColor: string;
+  baseColor: string;
+  annualDesignId?: string;
+  estimatedPageCount: number;
+}
+
+export interface OrderEvent {
+  eventId: string;
+  timestamp: string;               // ISO timestamp
+  status: BinderyFulfillmentStatus;
+  headline: string;
+  description: string;
+  carrier?: string;
+  trackingNumber?: string;
+}
+
+export interface BinderyFulfillmentRecord {
+  status: BinderyFulfillmentStatus;
+  statusUpdatedAt: string;
+  statusHeadline: string;          // e.g. "Hand-Crafting at Bindery"
+  statusDescription: string;       // e.g. "Your manuscript has been printed on 60# cream archival paper and is undergoing cloth casing and bronze foil stamping."
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  estimatedDelivery?: string;
+  destinationSnippet?: string;     // e.g. "Portland, OR 97201" (privacy-safe address snippet)
+  binderyFacility?: string;        // e.g. "Altheara Master Bindery, Oregon"
+  events: OrderEvent[];            // Append-only event ledger
+}
+
+export interface PhysicalOrderPaymentRecord {
+  referenceId: string;
+  currency: 'USD';
+  unitPriceCents: number;
+  quantity: number;
+  totalCents: number;
+  paymentStatus: 'paid' | 'comped_membership_benefit' | 'refunded';
+  paidAt: string;
+}
+
+export interface PhysicalEditionOrder {
+  orderId: string;                 // e.g. "ord_phys_20261109_sarah_01"
+  memberId: string;                // Authenticated owner
+  editionId: string;               // Exact preserved edition snapshot bound to this order
+  sourceVolumeId: string;          // e.g. "vol-2025"
+  editionVersion: number;          // e.g. 3
+  bookTitle: string;               // Preserved title
+  orderedAt: string;               // ISO timestamp
+  frozenPrintSpec: FrozenPrintSpecification;
+  quantity: number;
+  fulfillment: BinderyFulfillmentRecord;
+  payment?: PhysicalOrderPaymentRecord;
+  isReorderEligible: boolean;
+  parentOrderId?: string | null;   // Linked if this order is a reorder
+  isDevFixture?: boolean;          // Clearly marked if used in verification fixture
+}
+
 // --- IMMUTABLE SOURCE VOLUMES ---
 export const SOURCE_VOLUMES: VolumeSummary[] = [
   {

@@ -11,6 +11,7 @@ interface BookDetailViewProps {
   onOpenReader: () => void;
   onOpenAudiobook: () => void;
   onOpenWatch: () => void;
+  onOpenPhysicalEditions: () => void;
   onBackToBookshelf: () => void;
 }
 
@@ -21,6 +22,7 @@ export default function BookDetailView({
   onOpenReader,
   onOpenAudiobook,
   onOpenWatch,
+  onOpenPhysicalEditions,
   onBackToBookshelf,
 }: BookDetailViewProps) {
   const router = useRouter();
@@ -387,6 +389,31 @@ export default function BookDetailView({
                   Watch &rarr;
                 </span>
               </div>
+            </div>
+
+            {/* Secondary Section: My Physical Editions (Correction 1) */}
+            {/* Understated, elegant secondary section beneath the three primary experiences */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-[var(--color-canvas-stone)]/40 border border-[var(--color-text-graphite)]/15 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-serif text-base sm:text-lg font-medium text-[var(--color-text-ink)]">
+                    My Physical Editions
+                  </span>
+                  <span className="py-0.5 px-2 rounded-full font-sans text-[8px] tracking-widest uppercase font-medium bg-[var(--color-canvas-stone)] border border-[var(--color-text-graphite)]/20 text-[var(--color-text-graphite)]">
+                    Print Archive
+                  </span>
+                </div>
+                <span className="font-serif italic text-xs text-[var(--color-text-graphite)]/80">
+                  Preserved binding specifications, cloth finishes, and physical keepsake records.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenPhysicalEditions}
+                className="py-1.5 px-4 rounded-full border border-[var(--color-text-graphite)]/25 text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] hover:border-[var(--color-text-ink)] font-sans text-[10px] tracking-wider uppercase transition-colors shrink-0"
+              >
+                View Physical Archive &rarr;
+              </button>
             </div>
 
             {/* Secondary Action: Create a New Edition (Brief Section 9) */}

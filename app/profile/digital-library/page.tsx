@@ -7,6 +7,7 @@ import BookDetailView from '@/components/library/BookDetailView';
 import EBookReader from '@/components/library/EBookReader';
 import AudiobookPlayer from '@/components/library/AudiobookPlayer';
 import WatchMyBookView from '@/components/library/WatchMyBookView';
+import PhysicalEditionsView from '@/components/library/PhysicalEditionsView';
 
 function DigitalLibraryContent() {
   const router = useRouter();
@@ -16,12 +17,13 @@ function DigitalLibraryContent() {
   const shouldAutoRead = searchParams.get('read') === '1';
   const shouldAutoListen = searchParams.get('listen') === '1' || searchParams.get('audiobook') === '1';
   const shouldAutoWatch = searchParams.get('watch') === '1' || searchParams.get('presence') === '1';
+  const shouldAutoPhysical = searchParams.get('physical') === '1';
 
   const [books, setBooks] = useState<PreservedBook[]>([]);
   const [selectedBook, setSelectedBook] = useState<PreservedBook | null>(null);
   const [selectedEdition, setSelectedEdition] = useState<PreservedVolumeEdition | null>(null);
   const [targetChapterIndex, setTargetChapterIndex] = useState<number | undefined>(undefined);
-  const [view, setView] = useState<'bookshelf' | 'detail' | 'reader' | 'audiobook' | 'watch'>('bookshelf');
+  const [view, setView] = useState<'bookshelf' | 'detail' | 'reader' | 'audiobook' | 'watch' | 'physical'>('bookshelf');
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +92,8 @@ function DigitalLibraryContent() {
                 setView('audiobook');
               } else if (shouldAutoWatch) {
                 setView('watch');
+              } else if (shouldAutoPhysical) {
+                setView('physical');
               } else {
                 setView('detail');
               }
@@ -109,7 +113,7 @@ function DigitalLibraryContent() {
     return () => {
       isMounted = false;
     };
-  }, [requestedBookId, requestedEditionId, shouldAutoRead, shouldAutoListen, shouldAutoWatch, searchParams]);
+  }, [requestedBookId, requestedEditionId, shouldAutoRead, shouldAutoListen, shouldAutoWatch, shouldAutoPhysical, searchParams]);
 
   // Open Book Detail View
   const handleOpenBookDetail = (book: PreservedBook) => {
@@ -149,6 +153,11 @@ function DigitalLibraryContent() {
 
   const handleOpenWatch = () => {
     setView('watch');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenPhysical = () => {
+    setView('physical');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -223,6 +232,28 @@ function DigitalLibraryContent() {
     );
   }
 
+  // VIEW 4: Physical Editions view (Phase E)
+  if (view === 'physical' && selectedBook && selectedEdition) {
+    return (
+      <div className="min-h-screen bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] flex flex-col font-sans select-none">
+        <main className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-10 sm:py-14 flex-1 flex flex-col">
+          <PhysicalEditionsView
+            book={selectedBook}
+            selectedEdition={selectedEdition}
+            onSelectEdition={handleSelectEdition}
+            onOpenReader={handleOpenReader}
+            onBackToDetail={handleBackToDetail}
+            onBackToBookshelf={handleBackToBookshelf}
+          />
+        </main>
+        <footer className="w-full max-w-5xl mx-auto px-6 sm:px-8 py-8 border-t border-[var(--color-text-graphite)]/15 text-center flex flex-col items-center gap-1 text-[var(--color-text-graphite)]/60 font-sans text-[9px] tracking-widest uppercase">
+          <span>Private Fine-Book Archive &bull; Preserved in Vault</span>
+          <span>A Place for Your Life &bull; Altheara</span>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-canvas-linen)] text-[var(--color-text-ink)] flex flex-col font-sans select-none">
       {/* Top Folio Header (for bookshelf & detail view) */}
@@ -287,6 +318,7 @@ function DigitalLibraryContent() {
             onOpenReader={handleOpenReader}
             onOpenAudiobook={handleOpenAudiobook}
             onOpenWatch={handleOpenWatch}
+            onOpenPhysicalEditions={handleOpenPhysical}
             onBackToBookshelf={handleBackToBookshelf}
           />
         )}
