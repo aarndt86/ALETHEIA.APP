@@ -295,6 +295,67 @@ export interface ListeningStateRecord {
   lastListenedAt: string;
 }
 
+// --- FUTURE FULL-BOOK AVATAR NARRATION ARCHITECTURE (Phase D Foundation) ---
+// Dedicated edition-bound package contract for future avatar integration.
+// Decoupled from immutable manuscript snapshots in .data/vault/{memberId}/avatar_packages/{editionId}.json
+export type AvatarVideoProvenanceType =
+  | 'authentic_author_video'          // Genuine recorded author video footage
+  | 'authorized_synthetic_avatar'     // Authorized AI likeness & voice synthesis
+  | 'passage_take_only'               // Individual passage take (current status)
+  | 'unrecorded';                     // No video preserved
+
+export type AvatarVideoAvailabilityStatus =
+  | 'complete'                        // Every chapter has approved video narration
+  | 'partial'                         // Multiple chapters present, but incomplete
+  | 'passage_take_only'               // Single passage excerpt (current status)
+  | 'not_available';                  // No video preserved for this edition
+
+export interface AvatarLikenessConsentRecord {
+  consentId: string;
+  memberId: string;
+  sourceVolumeId: string;
+  editionId: string;
+  authorizedAt: string;
+  scope: 'this_edition_only' | 'this_volume_all_editions';
+  likenessReferenceAssetId: string;
+  voiceReferenceAssetId: string;
+  providerModelId?: string;
+  termsVersion: string;
+  status: 'active' | 'revoked';
+}
+
+export interface AvatarVideoTrack {
+  trackId: string;
+  chapterId: string;
+  chapterNumber: number;
+  chapterRoman: string;
+  chapterTitle: string;
+  videoAssetId: string;
+  storagePath: string;                // e.g. /api/volume/recording?assetId=...
+  mimeType: string;
+  durationSeconds: number;
+  fileSizeBytes: number;
+  status: 'approved_by_author' | 'pending_approval';
+}
+
+export interface AvatarVideoPackage {
+  editionId: string;
+  sourceVolumeId: string;
+  bookTitle: string;
+  authorName: string;
+  videoProvenance: AvatarVideoProvenanceType;
+  availabilityStatus: AvatarVideoAvailabilityStatus;
+  avatarCredit: string;
+  isSyntheticAvatar: boolean;
+  totalDurationSeconds: number;
+  totalChapters: number;
+  completedChapters: number;
+  tracks: AvatarVideoTrack[];
+  consentRecordId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- IMMUTABLE SOURCE VOLUMES ---
 export const SOURCE_VOLUMES: VolumeSummary[] = [
   {

@@ -201,7 +201,25 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Edition not found in member vault.' }, { status: 404 });
       }
 
-      if (editionRecordingAssetId !== assetId) {
+      let matchesEdition = editionRecordingAssetId === assetId;
+
+      // Also check if the asset is an approved track in this edition's dedicated audiobook package
+      if (!matchesEdition) {
+        const audiobooksDir = path.join(VAULT_DIR, member.id, 'audiobooks');
+        const pkgPath = path.join(audiobooksDir, `${editionId}.json`);
+        if (fs.existsSync(pkgPath)) {
+          try {
+            const pkgJson = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+            if (Array.isArray(pkgJson.tracks) && pkgJson.tracks.some((t: any) => t.audioAssetId === assetId)) {
+              matchesEdition = true;
+            }
+          } catch {
+            // ignore malformed package
+          }
+        }
+      }
+
+      if (!matchesEdition) {
         return NextResponse.json(
           { error: 'Access forbidden. Recording asset does not belong to the specified edition.' },
           { status: 403 }
