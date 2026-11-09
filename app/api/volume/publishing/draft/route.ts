@@ -176,6 +176,81 @@ export async function POST(request: Request) {
       }
     }
 
+    // SERVER-SIDE VIDEO ASSET VALIDATION (Phase LP2C)
+    // Author showcase video must strictly reference a verified asset belonging to this member and publication.
+    let updatedAuthorVideo = existingDraft.authorVideo;
+    const requestedVideoChoice = draftPayload.videoChoice;
+
+    if (requestedVideoChoice === 'none') {
+      updatedAuthorVideo = null;
+    } else if (draftPayload.authorVideo !== undefined) {
+      if (draftPayload.authorVideo === null) {
+        updatedAuthorVideo = null;
+      } else {
+        const candidate = draftPayload.authorVideo;
+        if (!candidate.assetId || typeof candidate.assetId !== 'string') {
+          return NextResponse.json(
+            { error: 'Invalid author video configuration. Asset ID is required.' },
+            { status: 400 }
+          );
+        }
+
+        const sanitizedAssetId = candidate.assetId.replace(/[^a-zA-Z0-9_-]/g, '');
+        const assetMetaPath = path.join(
+          VAULT_DIR,
+          member.id,
+          'publishing_assets',
+          existingDraft.publicationId,
+          `${sanitizedAssetId}.meta.json`
+        );
+
+        if (!fs.existsSync(assetMetaPath)) {
+          return NextResponse.json(
+            { error: 'Referenced author video asset does not exist or does not belong to this publication.' },
+            { status: 400 }
+          );
+        }
+
+        const assetMeta = JSON.parse(fs.readFileSync(assetMetaPath, 'utf-8'));
+        if (assetMeta.memberId !== member.id || assetMeta.publicationId !== existingDraft.publicationId) {
+          return NextResponse.json(
+            { error: 'Access forbidden. Referenced video asset belongs to a different member or publication.' },
+            { status: 403 }
+          );
+        }
+
+        if (assetMeta.durationSeconds > 30.5) {
+          return NextResponse.json(
+            { error: `Video duration (${assetMeta.durationSeconds}s) exceeds the maximum limit of 30.0 seconds.` },
+            { status: 400 }
+          );
+        }
+
+        if (candidate.isApproved && !candidate.consentConfirmed) {
+          return NextResponse.json(
+            { error: 'Consent confirmation is required before approving author video for bookstore listing.' },
+            { status: 400 }
+          );
+        }
+
+        updatedAuthorVideo = {
+          assetId: sanitizedAssetId,
+          mediaType: 'video',
+          mimeType: assetMeta.mimeType,
+          durationSeconds: assetMeta.durationSeconds,
+          fileSizeBytes: assetMeta.fileSizeBytes,
+          storagePath: `/api/volume/publishing/video?assetId=${sanitizedAssetId}&pubDraftId=${sanitizedPubDraftId}`,
+          recordedAt: assetMeta.uploadedAt,
+          isApproved: Boolean(candidate.isApproved),
+          approvedAt: candidate.isApproved
+            ? candidate.approvedAt || new Date().toISOString()
+            : undefined,
+          consentConfirmed: Boolean(candidate.consentConfirmed),
+          source: candidate.source || 'member_upload'
+        };
+      }
+    }
+
     // Merge updates while protecting core identity & provenance
     const updatedDraft: PublishingDraft = {
       ...existingDraft,
@@ -187,7 +262,8 @@ export async function POST(request: Request) {
       chapters: JSON.parse(JSON.stringify(draftPayload.chapters)),
       bookstoreImage: updatedBookstoreImage,
       coverConfig: draftPayload.coverConfig || existingDraft.coverConfig,
-      authorVideo: draftPayload.authorVideo !== undefined ? draftPayload.authorVideo : existingDraft.authorVideo,
+      videoChoice: requestedVideoChoice || (updatedAuthorVideo ? 'included' : (existingDraft.videoChoice || 'undecided')),
+      authorVideo: updatedAuthorVideo,
       currentStep: draftPayload.currentStep || existingDraft.currentStep,
       lastSavedAt: new Date().toISOString(),
       isDirty: false,

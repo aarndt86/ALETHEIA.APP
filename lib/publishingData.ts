@@ -53,14 +53,34 @@ export interface PublishingCoverConfig {
   isApproved: boolean;
 }
 
+/**
+ * Verified Author Video Asset record.
+ * Stored in member vault publishing_assets directory.
+ */
+export interface BookstoreVideoAsset {
+  assetId: string;
+  publicationId: string;
+  memberId: string;
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  durationSeconds: number;
+  storagePath: string; // /api/volume/publishing/video?assetId=...&pubDraftId=...
+  uploadedAt: string;
+}
+
 export interface PublishingAuthorVideoAsset {
   assetId: string;
   mediaType: 'video';
   mimeType: string;
   durationSeconds: number;
-  storagePath: string; // /api/volume/publishing/video?assetId=...
+  fileSizeBytes?: number;
+  storagePath: string; // /api/volume/publishing/video?assetId=...&pubDraftId=...
   recordedAt: string;
   isApproved: boolean;
+  approvedAt?: string;
+  consentConfirmed?: boolean;
+  source?: 'member_recording' | 'member_upload';
 }
 
 /**
@@ -83,6 +103,7 @@ export interface PublishingDraft {
   chapters: ManuscriptChapter[];
   bookstoreImage?: BookstoreImageConfig;
   coverConfig?: PublishingCoverConfig;
+  videoChoice?: 'none' | 'included' | 'undecided';
   authorVideo?: PublishingAuthorVideoAsset | null;
   status: 'draft';
   currentStep: PublishingStep;

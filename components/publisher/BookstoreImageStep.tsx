@@ -156,10 +156,26 @@ export function BookstoreImageStep({ draft, pubDraftId, onDraftUpdate }: Booksto
         </button>
 
         <div className="hidden sm:flex items-center gap-6 font-sans text-[11px] tracking-[0.2em] uppercase">
-          <span className="text-[var(--color-text-graphite)]/60">Step 1: Manuscript</span>
-          <span className="text-[var(--color-accent-clay)] font-semibold border-b border-[var(--color-accent-clay)] pb-0.5">Step 2: Bookstore Image</span>
-          <span className="text-[var(--color-text-graphite)]/40 cursor-not-allowed" title="Available in Phase LP2C">Step 3: Showcase</span>
-          <span className="text-[var(--color-text-graphite)]/40 cursor-not-allowed" title="Available in Phase LP2D">Step 4: Review</span>
+          <button
+            type="button"
+            onClick={() => router.push(`/profile/volume-editor/editor?pubDraftId=${encodeURIComponent(pubDraftId)}&edit=1`)}
+            className="text-[var(--color-text-graphite)]/60 hover:text-[var(--color-text-ink)] uppercase focus:outline-none"
+          >
+            Step 1: Manuscript
+          </button>
+          <span className="text-[var(--color-accent-clay)] font-semibold border-b border-[var(--color-accent-clay)] pb-0.5">
+            Step 2: Bookstore Image
+          </span>
+          <button
+            type="button"
+            onClick={() => router.push(`/profile/legacy-publisher?pubDraftId=${encodeURIComponent(pubDraftId)}&step=3`)}
+            className="text-[var(--color-text-graphite)]/60 hover:text-[var(--color-text-ink)] uppercase focus:outline-none"
+          >
+            Step 3: Story Preview
+          </button>
+          <span className="text-[var(--color-text-graphite)]/40 cursor-not-allowed uppercase" title="Available in Phase LP2D">
+            Step 4: Review
+          </span>
         </div>
       </nav>
 
@@ -472,11 +488,10 @@ export function BookstoreImageStep({ draft, pubDraftId, onDraftUpdate }: Booksto
 
           <button
             type="button"
-            disabled
-            title="Step 3 Author Showcase Video will be implemented in Phase LP2C"
-            className="py-2.5 px-6 rounded-full bg-[var(--color-text-ink)]/30 text-white font-sans text-xs tracking-[0.18em] uppercase cursor-not-allowed focus:outline-none"
+            onClick={() => router.push(`/profile/legacy-publisher?pubDraftId=${encodeURIComponent(pubDraftId)}&step=3`)}
+            className="py-2.5 px-6 rounded-full bg-[var(--color-text-ink)] text-[var(--color-canvas-linen)] hover:bg-[var(--color-text-ink)]/90 font-sans text-xs tracking-[0.18em] uppercase transition-all duration-200 active:scale-[0.98] focus:outline-none shadow-sm"
           >
-            Continue to Author Showcase &rarr;
+            Continue to Story Preview &rarr;
           </button>
         </div>
       </footer>
