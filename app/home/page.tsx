@@ -95,6 +95,31 @@ export default function AlthearaHomeScreen() {
           ))}
         </div>
 
+        {/* Literary Studios & Libraries Quick Access */}
+        <div
+          className="w-full flex flex-col items-center gap-4 pt-10"
+          style={{ animation: 'fadeItem 800ms cubic-bezier(0.33, 1, 0.68, 1) 700ms both' }}
+        >
+          <div className="w-12 h-[1px] bg-[var(--color-text-graphite)]/20" />
+          <div className="flex items-center justify-center gap-6 px-4 text-center">
+            <button
+              type="button"
+              onClick={() => handleNavigate('/profile/digital-library')}
+              className="font-sans text-[10px] tracking-[0.22em] uppercase text-[var(--color-text-graphite)]/75 hover:text-[var(--color-text-ink)] transition-colors duration-300 focus:outline-none"
+            >
+              My Digital Library
+            </button>
+            <span className="text-[var(--color-text-graphite)]/30 text-xs select-none">&bull;</span>
+            <button
+              type="button"
+              onClick={() => handleNavigate('/profile/legacy-publisher')}
+              className="font-sans text-[10px] tracking-[0.22em] uppercase text-[var(--color-text-graphite)]/75 hover:text-[var(--color-text-ink)] transition-colors duration-300 focus:outline-none"
+            >
+              Legacy Publisher
+            </button>
+          </div>
+        </div>
+
       </div>
     </main>
   );
