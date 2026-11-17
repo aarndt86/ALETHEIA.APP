@@ -228,7 +228,7 @@ export default function TimelineScreen() {
       {/* Full Entry Reading View Overlay */}
       {selectedEntryId && selectedEntry && (
         <div 
-          className={`absolute top-0 left-0 right-0 z-50 flex flex-col p-6 sm:p-12 md:p-24 min-h-[100dvh] overflow-y-auto no-scrollbar scroll-smooth transition-all ease-[cubic-bezier(0.33,1,0.68,1)] pointer-events-none
+          className={`fixed inset-0 z-50 flex flex-col p-6 sm:p-12 md:p-24 overflow-y-auto no-scrollbar scroll-smooth bg-[var(--color-canvas-linen)] transition-all ease-[cubic-bezier(0.33,1,0.68,1)] pointer-events-none
             ${isExpanding && !isClosing ? 'opacity-100 translate-y-0 blur-0 duration-[1200ms] pointer-events-auto' : 'opacity-0 translate-y-6 blur-[1px] duration-[800ms]'}
           `}
           style={{ WebkitOverflowScrolling: 'auto', overscrollBehavior: 'none' }}
