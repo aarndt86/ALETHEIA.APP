@@ -9,7 +9,7 @@ export default function ProfileScreen() {
 
   const handleClose = () => {
     setIsTransitioning(true);
-    setTimeout(() => router.back(), 600);
+    setTimeout(() => router.push('/home'), 600);
   };
 
   return (
