@@ -228,8 +228,8 @@ export default function TimelineScreen() {
       {/* Full Entry Reading View Overlay */}
       {selectedEntryId && selectedEntry && (
         <div 
-          className={`absolute top-0 left-0 right-0 z-50 flex flex-col p-6 sm:p-12 md:p-24 min-h-[100dvh] overflow-y-auto no-scrollbar scroll-smooth transition-all ease-[cubic-bezier(0.33,1,0.68,1)] pointer-events-none
-            ${isExpanding && !isClosing ? 'opacity-100 translate-y-0 blur-0 duration-[1200ms] pointer-events-auto' : 'opacity-0 translate-y-6 blur-[1px] duration-[800ms]'}
+          className={`absolute top-0 left-0 right-0 z-50 flex flex-col p-6 sm:p-12 md:p-24 min-h-[100dvh] overflow-y-auto no-scrollbar scroll-smooth transition-all ease-[cubic-bezier(0.33,1,0.68,1)]
+            ${isExpanding && !isClosing ? 'opacity-100 translate-y-0 blur-0 duration-[1200ms] pointer-events-auto' : 'opacity-0 translate-y-6 blur-[1px] duration-[800ms] pointer-events-none'}
           `}
           style={{ WebkitOverflowScrolling: 'auto', overscrollBehavior: 'none' }}
           role="dialog"
@@ -241,7 +241,7 @@ export default function TimelineScreen() {
             <button 
               type="button"
               onClick={handleCloseDetail}
-              className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors self-start mb-16 sm:mb-24 focus:outline-none"
+              className="font-sans text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-graphite)] hover:text-[var(--color-text-ink)] transition-colors self-start mb-16 sm:mb-24 focus:outline-none py-2 px-4 cursor-pointer"
               aria-label="Close entry and return to archive"
             >
               Close
@@ -295,7 +295,7 @@ export default function TimelineScreen() {
               <button 
                 type="button"
                 onClick={handleCloseDetail}
-                className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-xs tracking-[0.2em] uppercase hover:text-[var(--color-text-ink)] transition-colors duration-500 focus:outline-none"
+                className="font-sans text-[var(--color-text-graphite)] text-[10px] sm:text-xs tracking-[0.2em] uppercase hover:text-[var(--color-text-ink)] transition-colors duration-500 focus:outline-none py-3 px-6 cursor-pointer"
               >
                 Return to Archive
               </button>
